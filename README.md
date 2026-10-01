@@ -6,7 +6,7 @@ The idea: at the end of the raid the loot master collects all the items. Everybo
 
 ASR needs Arbiter Loot Council (it uses its sessions, answers and trade queue), so a guild can run a Loot Council on some bosses and soft reserve on others in the same raid.
 
-See [docs/design.md](docs/design.md).
+See [docs/design.md](docs/design.md) and [docs/api-sketch.md](docs/api-sketch.md) (what ASR needs from Arbiter Loot Council).
 
 ## What exists
 
