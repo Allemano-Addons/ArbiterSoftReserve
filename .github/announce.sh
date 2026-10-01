@@ -57,7 +57,7 @@ case "$CFID" in
   1719025) HEX=F0763A; SLUG=craftboard ;;
   1719135) HEX=45C97E; SLUG=alc ;;
   1719519) HEX=ECEDEF; SLUG=hub ;;
-  1721476) HEX=9B7BFF; SLUG="" ;;                  # Arbiter Soft Reserve (no page on the website yet)
+  1721476) HEX=9B7BFF; SLUG=asr ;;                 # Arbiter Soft Reserve
   *) HEX=ECEDEF; SLUG="" ;;
 esac
 COLOR=$((16#$HEX))
