@@ -16,7 +16,7 @@ Status 2026-10-01. A separate addon that needs Arbiter Loot Council (ALC). Decis
 
 ## The list
 
-softres.it CSV (`Item Name,Item ID,From,Raider Name,Raider Class,Raider Spec,Raider Note,Extra Reserves,Date`), pasted into the addon. Names in the list are first names; a character on Forever has a surname, so they are matched on the first name. The Gargul export is base64 + zlib + JSON; it needs LibDeflate and comes later (hard reserves and bonus rolls are in it).
+softres.it CSV (`Item Name,Item ID,From,Raider Name,Raider Class,Raider Spec,Raider Note,Extra Reserves,Date`), pasted into the addon. Names in the list are first names; a character on Forever has a surname, so they are matched on the first name. Decision 2026-10-01: **CSV only**. The Gargul export (base64 + zlib + JSON) is not supported: it would need a decompression library (LibDeflate) for no gain, since the CSV has what ASR needs (who reserved which item). Hard reserves and bonus rolls are not in the CSV; if they are wanted later they need another way in.
 
 ## What ALC needs to offer (kept as small as possible, nothing built yet)
 
@@ -32,4 +32,3 @@ Every ALC change is made on a branch with ALC's tests and goes out as an ordinar
 1. Engine and import with tests (done).
 2. The API sketch on paper; no change in ALC before the flow has been tried in a prototype.
 3. Import box and "SR" markers, then the SR session, Resolve, the result window, Reroll, Award all.
-4. The Gargul string.

@@ -10,7 +10,7 @@ Soft reserve for Arbiter Loot Council: import your softres.it list, everybody ro
 
 Arbiter Soft Reserve (ASR) adds soft reserve sessions to [Arbiter Loot Council](https://www.curseforge.com/wow/addons/arbiter-loot-council). At the end of the raid the loot master collects all the loot, everybody answers on every item, and the addon works out who wins what. The loot master looks at the result, accepts it and hands everything out in one go.
 
-> **In development (alpha).** The import of the list and the rules for the winners are written and tested, but the windows are not there yet, so there is nothing to use in the game today. This page is here so you can follow it. **Requires Arbiter Loot Council.**
+> **In development (alpha).** So far you can import your softres.it list and see who reserved an item in its tooltip. The sessions, the rolls and the result window come next. **Requires Arbiter Loot Council.**
 
 ### How it will work
 
@@ -32,13 +32,14 @@ Because ASR is built on Arbiter Loot Council, a guild can run a **Loot Council o
 
 - Reads the CSV export of softres.it (item, player, class, spec, note).
 - A reserve lists a first name ("Allemano"); a character on WoW Forever has a surname ("Allemano Moo"). They are matched on the first name.
-- The Gargul export and hard reserves come later.
+- Export as **CSV** from softres.it. That is the one supported format.
 
 ### What is built so far
 
-- The import of the softres.it CSV, with tests (quoted fields, other line endings, bad lines, the columns in any order).
-- The rules for the winners, ties and rerolls, with tests.
-- `/asr` shows the version and how many reservations are loaded.
+- **Import:** `/asr import` opens a box; paste the CSV export of softres.it and press Import. The list is saved between sessions.
+- **Tooltips:** every item tooltip gets a line, "Soft reserved by: Allemano, Erikdbest", with the names in their class colours. `/asr tooltip off` turns it off.
+- **Commands:** `/asr` shows what is loaded, `/asr clear` forgets the list.
+- Behind the scenes, and tested but not yet connected to any window: the rules for the winners, the rerolls, and the model of a whole session (answers, Resolve, the result, the awards).
 
 ### Good to know
 
