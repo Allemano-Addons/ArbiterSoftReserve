@@ -1,4 +1,7 @@
 # Changelog
 
-## 0.0.1 (in development)
-- The start of the addon: the import of a softres.it CSV and the rules for who wins (reservers first, then open MS, then OS; the highest rolls win; a tie is rerolled). No windows yet and nothing to use in the game.
+## 0.1.0-alpha
+- `/asr import` opens a box where you paste the CSV export of softres.it. Press Import to load the list (a new import replaces the old one); it is saved between sessions.
+- Item tooltips show **"Soft reserved by: Name, Name"** (in the class colour, with "+N more" for a long list), also in chat links. `/asr tooltip off` turns it off.
+- `/asr` shows what is loaded, `/asr clear` forgets the list.
+- The rules for who wins (reservers first, then open MS, then OS; the highest rolls win; a tie is rerolled) are written and tested, but not connected to any window yet.

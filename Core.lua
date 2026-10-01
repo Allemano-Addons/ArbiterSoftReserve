@@ -1,7 +1,6 @@
--- Arbiter Soft Reserve (ASR): soft reserve sessions on top of Arbiter Loot Council.
--- This is the start of the addon: the namespace, the saved data and a command that says where it stands.
--- The import of a softres.it list (SoftRes/Import.lua) and the rules for the winners (SoftRes/Rules.lua) are
--- written and tested; the windows come later.
+-- Arbiter Soft Reserve (ASR): soft reserve for Arbiter Loot Council.
+-- This file is the namespace, the saved data and the /asr command. The list (SoftRes/Import.lua), the
+-- tooltip line (SoftRes/Tooltip.lua) and the import box (ImportWindow.lua) are what exists so far.
 local addonName, ASR = ...
 
 ASR.name = addonName
@@ -14,16 +13,17 @@ end
 
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
-frame:SetScript("OnEvent", function(_, _, name)
-	if name ~= addonName then return end
-	if type(ASR_DB) ~= "table" then ASR_DB = {} end
-	ASR.db = ASR_DB
-	ASR.version = getMetadata and getMetadata(addonName, "Version") or "?"
+frame:RegisterEvent("PLAYER_LOGIN")
+frame:SetScript("OnEvent", function(_, event, name)
+	if event == "ADDON_LOADED" then
+		if name ~= addonName then return end
+		if type(ASR_DB) ~= "table" then ASR_DB = {} end
+		ASR.db = ASR_DB
+		ASR.version = getMetadata and getMetadata(addonName, "Version") or "?"
+	elseif event == "PLAYER_LOGIN" then
+		ASR.SoftRes.InstallTooltip()
+	end
 end)
 
 SLASH_ARBITERSOFTRESERVE1 = "/asr"
-SlashCmdList["ARBITERSOFTRESERVE"] = function()
-	local list = ASR.SoftRes and ASR.SoftRes:GetList()
-	ASR:Print("v" .. tostring(ASR.version) .. ": in development, nothing to use yet.")
-	if list then ASR:Print(list.rows .. " reservations from " .. list.players .. " players are loaded.") end
-end
+SlashCmdList["ARBITERSOFTRESERVE"] = function(text) ASR.Commands.Run(text) end

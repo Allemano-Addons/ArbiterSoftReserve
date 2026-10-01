@@ -7,4 +7,6 @@ globals = { "ASR_DB", "SLASH_ARBITERSOFTRESERVE1", "SlashCmdList" }
 
 read_globals = {
 	"C_AddOns", "GetAddOnMetadata", "CreateFrame", "DEFAULT_CHAT_FRAME", "strjoin", "tostringall", "time",
+	"UIParent", "UISpecialFrames", "ChatFontNormal", "GameFontHighlight", "RAID_CLASS_COLORS", "TooltipDataProcessor",
+	"Enum", "GameTooltip", "ItemRefTooltip", "issecretvalue",
 }

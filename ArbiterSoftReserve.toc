@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Arbiter Soft Reserve
-## Notes: Soft reserve sessions for Arbiter Loot Council: import the list, everybody answers, the highest rolls win. In development.
-## Version: 0.0.1
+## Notes: Soft reserve for Arbiter Loot Council. So far: import a softres.it list and see who reserved an item in its tooltip.
+## Version: 0.1.0-alpha
 ## Author: Allemano
 ## Category: Raid
 ## X-Curse-Project-ID: 1721476
@@ -11,3 +11,6 @@
 Core.lua
 SoftRes\Import.lua
 SoftRes\Rules.lua
+SoftRes\Tooltip.lua
+ImportWindow.lua
+Commands.lua
