@@ -12,6 +12,7 @@ See [docs/design.md](docs/design.md) and [docs/api-sketch.md](docs/api-sketch.md
 
 - `SoftRes/Import.lua`: reads the softres.it CSV, answers "who reserved this item?", matches a first name in the list with a character that has a surname.
 - `SoftRes/Rules.lua`: the rules for the winners, ties and rerolls.
+- `SoftRes/Session.lua`: one whole session as plain data: answers, Resolve (the rolls), Reroll, the rows of the result window and the list of awards that Accept hands over. Not connected to any window yet.
 - Tests for both (`lua Tests/import_test.lua`, `lua Tests/rules_test.lua`), run on every push.
 
 ## Commands

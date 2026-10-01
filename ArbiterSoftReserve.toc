@@ -11,6 +11,7 @@
 Core.lua
 SoftRes\Import.lua
 SoftRes\Rules.lua
+SoftRes\Session.lua
 SoftRes\Tooltip.lua
 ImportWindow.lua
 Commands.lua
