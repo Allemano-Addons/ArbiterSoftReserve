@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: Arbiter Soft Reserve
+## Notes: Soft reserve sessions for Arbiter Loot Council: import the list, everybody answers, the highest rolls win. In development.
+## Version: 0.0.1
+## Author: Allemano
+## Category: Raid
+## Dependencies: ArbiterLootCouncil
+## SavedVariables: ASR_DB
+
+Core.lua
+SoftRes\Import.lua
+SoftRes\Rules.lua
