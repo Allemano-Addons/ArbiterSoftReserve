@@ -1,6 +1,7 @@
 -- Arbiter Soft Reserve (ASR): soft reserve for Arbiter Loot Council.
 -- This file is the namespace, the saved data and the /asr command. The list (SoftRes/Import.lua), the
--- tooltip line (SoftRes/Tooltip.lua) and the import box (ImportWindow.lua) are what exists so far.
+-- tooltip line (SoftRes/Tooltip.lua), the import box (ImportWindow.lua), the session (SoftRes/Session.lua,
+-- Controller.lua, SessionWindow.lua) and the link to Arbiter Loot Council (SoftRes/Bridge.lua) are the parts.
 local addonName, ASR = ...
 
 ASR.name = addonName
@@ -22,7 +23,7 @@ frame:SetScript("OnEvent", function(_, event, name)
 		ASR.version = getMetadata and getMetadata(addonName, "Version") or "?"
 	elseif event == "PLAYER_LOGIN" then
 		ASR.SoftRes.InstallTooltip()
-		-- Tell ALC we are here, when it is new enough to ask (ALC 0.3.4 has no API yet; nothing in ASR needs it so far).
+		-- Tell ALC we are here, when it is new enough to ask (ALC 0.3.4 has no API; sessions need ALC 0.4.0-beta).
 		if ALC and ALC.RegisterExtension then ALC.RegisterExtension("ArbiterSoftReserve", ASR.version) end
 		pcall(ASR.SoftRes.Bridge.Init)
 	end

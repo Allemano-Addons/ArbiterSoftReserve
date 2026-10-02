@@ -2,7 +2,7 @@
 
 ## Summary (the short one, for the "Summary" field; max 200 characters)
 
-Soft reserve for Arbiter Loot Council: import your softres.it list, everybody rolls on all the loot at the end of the raid, the highest rolls win and the loot master hands it all out. In development.
+Soft reserve for Arbiter Loot Council: import your softres.it list, everybody rolls on all the loot at the end of the raid, the highest rolls win and the loot master hands it all out. Alpha. Needs Arbiter Loot Council 0.4.0-beta or newer.
 
 ## Description (the long one)
 
@@ -10,9 +10,9 @@ Soft reserve for Arbiter Loot Council: import your softres.it list, everybody ro
 
 Arbiter Soft Reserve (ASR) adds soft reserve sessions to [Arbiter Loot Council](https://www.curseforge.com/wow/addons/arbiter-loot-council). At the end of the raid the loot master collects all the loot, everybody answers on every item, and the addon works out who wins what. The loot master looks at the result, accepts it and hands everything out in one go.
 
-> **In development (alpha).** So far you can import your softres.it list and see who reserved an item in its tooltip. The sessions, the rolls and the result window come next. **Requires Arbiter Loot Council.**
+> **Alpha (0.2.0).** The whole flow works in our tests: import, a session where everybody answers, one roll for all, every roll shown to everybody, and one question that hands out all the winners. It has not been tried with a full raid yet. **Requires Arbiter Loot Council 0.4.0-beta or newer** (the loot master needs both addons, the other players need Arbiter Loot Council).
 
-### How it will work
+### How it works
 
 1. **Import the list.** Export your soft reserves from softres.it as CSV and paste them into the addon before the raid.
 2. **One session for the whole night.** The loot master starts all the items together. Everybody sees all of them and answers **MS**, **OS** or **Pass**. The ones who reserved an item are marked.
@@ -34,12 +34,13 @@ Because ASR is built on Arbiter Loot Council, a guild can run a **Loot Council o
 - A reserve lists a first name ("Allemano"); a character on WoW Forever has a surname ("Allemano Moo"). They are matched on the first name.
 - Export as **CSV** from softres.it. That is the one supported format.
 
-### What is built so far
+### Commands
 
-- **Import:** `/asr import` opens a box; paste the CSV export of softres.it and press Import. The list is saved between sessions.
+- `/asr import`: paste the CSV export of softres.it and press Import. The list is saved between sessions, and the box shows it as text you can edit.
+- `/asr start [items]` (loot master): starts a soft reserve session in Arbiter Loot Council, for the items of your list or the items you give. The session window has **Resolve**, **Reroll ties**, **Accept result**, **Reopen answers**, **Pause** and **Stop session**.
+- `/asr test`: a whole session with made-up players, to try it alone. `/asr add [item] [name]` adds one reservation.
 - **Tooltips:** every item tooltip gets a line, "Soft reserved by: Allemano, Erikdbest", with the names in their class colours. `/asr tooltip off` turns it off.
-- **Commands:** `/asr` shows what is loaded, `/asr clear` forgets the list.
-- Behind the scenes, and tested but not yet connected to any window: the rules for the winners, the rerolls, and the model of a whole session (answers, Resolve, the result, the awards).
+- `/asr` shows what is loaded, `/asr clear` forgets the list.
 
 ### Good to know
 
