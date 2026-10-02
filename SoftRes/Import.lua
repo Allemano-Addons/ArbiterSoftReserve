@@ -62,6 +62,17 @@ end
 
 local function trim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
 
+-- A character name without anything the game's text system treats as a code: a pasted item link
+-- (|H...|h[Name]|h, with a colour such as |cff0070dd or |cnIQ3:), textures, atlas icons, [brackets].
+-- A stray colour code would otherwise colour everything after it.
+function SoftRes.CleanName(text)
+	text = tostring(text or "")
+	text = text:gsub("|H.-|h.-|h", ""):gsub("|T.-|t", ""):gsub("|A.-|a", "")
+	text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[%w_]*:", ""):gsub("|r", "")
+	text = text:gsub("%[.-%]", ""):gsub("|", "")
+	return trim(text)
+end
+
 -- Reads the CSV text. Returns the list { reserves, players, rows, skipped } or nil and a message.
 function SoftRes.ParseCSV(text)
 	if type(text) ~= "string" or text:find("^%s*$") then return nil, "There is nothing to read." end
@@ -78,7 +89,7 @@ function SoftRes.ParseCSV(text)
 		elseif not line:find("^%s*$") then
 			local fields = splitLine(line)
 			local itemID = tonumber(trim(fields[columns["item id"]] or ""))
-			local name = trim(fields[columns["raider name"]] or "")
+			local name = SoftRes.CleanName(fields[columns["raider name"]])
 			if itemID and itemID > 0 and itemID == math.floor(itemID) and name ~= "" then
 				local function field(key) return trim(fields[columns[key] or 0] or "") end
 				local entry = {
@@ -153,4 +164,45 @@ function SoftRes:IsReserver(characterName, itemID)
 		if SoftRes.SameCharacter(entry.name, characterName) then return true end
 	end
 	return false
+end
+
+--------------------------------------------------------------------------------
+-- Editing the loaded list
+--------------------------------------------------------------------------------
+
+local function csvField(value)
+	value = tostring(value or "")
+	if value:find('[,"\r\n]') then return '"' .. value:gsub('"', '""') .. '"' end
+	return value
+end
+
+-- The loaded list as CSV text (what Import reads), so it can be shown and edited in the import box.
+-- The item names are not kept, so that column is empty.
+function SoftRes:ToCSV()
+	local current = self:GetList()
+	if not current then return "" end
+	local ids = {}
+	for itemID in pairs(current.reserves) do ids[#ids + 1] = itemID end
+	table.sort(ids)
+	local lines = { "Item Name,Item ID,From,Raider Name,Raider Class,Raider Spec,Raider Note,Extra Reserves,Date" }
+	for _, itemID in ipairs(ids) do
+		for _, e in ipairs(current.reserves[itemID]) do
+			lines[#lines + 1] = table.concat({ "", itemID, "", csvField(e.name), csvField(e.class), csvField(e.spec),
+				csvField(e.note), e.extra or 0, "" }, ",")
+		end
+	end
+	return table.concat(lines, "\n")
+end
+
+-- Adds one reservation to the loaded list (or starts a list). For trying things out. Returns the list, or nil
+-- and a message.
+function SoftRes:Add(itemID, characterName)
+	itemID = tonumber(itemID)
+	if not itemID or itemID <= 0 or itemID ~= math.floor(itemID) then return nil, "That is not an item." end
+	characterName = SoftRes.CleanName(characterName)
+	if characterName == "" then return nil, "Who reserved it?" end
+	local current = self:GetList()
+	local text = current and self:ToCSV() or "Item Name,Item ID,From,Raider Name,Raider Class,Raider Spec,Raider Note,Extra Reserves,Date"
+	text = text .. "\n" .. table.concat({ "", itemID, "", csvField(characterName), "", "", "", 0, "" }, ",")
+	return self:Import(text)
 end

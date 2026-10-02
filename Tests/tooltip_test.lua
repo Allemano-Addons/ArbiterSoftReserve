@@ -69,6 +69,29 @@ check("/asr tooltip on", ASR.db.tooltip == true)
 printed = {}
 ASR.Commands.Run("tooltip maybe")
 check("a wrong tooltip argument gets the usage", printed[1]:find("Usage", 1, true) ~= nil)
+SoftRes:Clear()
+UnitName = function() return "Me" end
+printed = {}
+ASR.Commands.Run("add |cffa335ee|Hitem:28830::::::::70:::::|h[Dragonspine Trophy]|h|r Erik")
+check("/asr add takes an item link and a name", SoftRes:IsReserver("Erik", 28830) and printed[1]:find("Added item 28830 for Erik", 1, true))
+ASR.Commands.Run("add 29764")
+check("the name defaults to you", SoftRes:IsReserver("Me", 29764))
+printed = {}
+ASR.Commands.Run("add nonsense")
+check("/asr add without an item gets the usage", printed[1]:find("Usage", 1, true) ~= nil)
+SoftRes:Clear()
+ASR.Commands.Run("add |Hitem:273647::::::::70:::::|h[Worgpelt Leggings]|h Allemano Moo")
+check("a link without colour codes does not leak into the name", SoftRes:IsReserver("Allemano Moo", 273647) and #SoftRes:GetReservers(273647) == 1
+	and SoftRes:GetReservers(273647)[1].name == "Allemano Moo")
+ASR.Commands.Run("add 555 [Plain Text Name] Bob")
+check("a bracketed name is dropped too", SoftRes:GetReservers(555)[1] and SoftRes:GetReservers(555)[1].name == "Bob")
+SoftRes:Clear()
+ASR.Commands.Run("add |cnIQ3:|Hitem:273647::::::::70:::::|h[Worgpelt Leggings]|h|r")
+check("a modern colour code does not leak into the name", #SoftRes:GetReservers(273647) == 1 and SoftRes:GetReservers(273647)[1].name == "Me")
+ASR.Commands.Run("add |cnIQ3:|Hitem:273648::::::::70:::::|h[X]|h|r Allemano")
+check("and a name after it still works", SoftRes:GetReservers(273648)[1] and SoftRes:GetReservers(273648)[1].name == "Allemano")
+SoftRes:Import("Item ID,Raider Name\n9,|cnIQ3:Dirty|r Name")
+check("a dirty name in a CSV is cleaned", SoftRes:GetReservers(9)[1] and SoftRes:GetReservers(9)[1].name == "Dirty Name")
 ASR.Commands.Run("clear")
 check("/asr clear forgets the list", SoftRes:GetList() == nil)
 printed = {}

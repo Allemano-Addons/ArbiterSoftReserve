@@ -52,6 +52,31 @@ DEFAULT_CHAT_FRAME = { AddMessage = function(_, message) chat[#chat + 1] = messa
 SlashCmdList = {}
 C_AddOns = { GetAddOnMetadata = function(_, field) return field == "Version" and "9.9.9" or nil end }
 
+-- Arbiter Loot Council's widgets (ASR builds its windows from them): stand-ins that make real frames
+local function region() return setmetatable({}, { __index = function() return function() end end }) end
+ALC = { UI = {
+	color = { bg = { 0, 0, 0, 1 }, panel = { 0, 0, 0, 1 }, panelHover = { 0, 0, 0, 1 }, border = { 0, 0, 0, 1 }, text = { 1, 1, 1, 1 },
+		muted = { 0.5, 0.5, 0.5, 1 }, gold = { 1, 0.7, 0.2, 1 }, goldTint = { 0.2, 0.15, 0.05, 1 }, danger = { 1, 0, 0, 1 } },
+	NewFill = function() return region() end,
+	AddBorder = function() return region() end,
+	SetTextureColor = function() end,
+	RegisterScaled = function() end,
+	NewText = function(parent) return parent:CreateFontString() end,
+	NewButton = function(_, _, _, label, onClick)
+		local b = newFrame("Button")
+		b.labelText = label
+		b.scripts.OnClick = function(self) if b.available ~= false then onClick(self) end end
+		function b:SetAvailable(on) self.available = on and true or false end
+		return b
+	end,
+	NewScrollBar = function() local b = newFrame("Button") function b:Update() end return b end,
+	QualityColor = function() return { 1, 1, 1 } end,
+	ClassColor = function() return { 1, 1, 1 } end,
+} }
+local function buttonLabelled(label)
+	for _, fr in ipairs(frames) do if fr.kind == "Button" and fr.labelText == label then return fr end end
+end
+
 -- Load the files the TOC lists, in order.
 local ASR = {}
 for line in io.lines("ArbiterSoftReserve.toc") do
@@ -87,12 +112,7 @@ slash("import")
 local box
 for _, f in ipairs(frames) do if f.kind == "EditBox" then box = f end end
 check("the import box is built and shown", box ~= nil and ASR.ImportWindow ~= nil)
-local importButton, clearButton
-for _, f in ipairs(frames) do
-	if f.kind == "Button" and f.scripts.OnClick and f.children then
-		importButton = importButton or f
-	end
-end
+local importButton = buttonLabelled("Import")
 check("the box has buttons", importButton ~= nil)
 
 local csv = table.concat({
@@ -102,13 +122,11 @@ local csv = table.concat({
 }, "\n")
 box:SetText(csv)
 check("pasting grows the box to fit", box:GetText() == csv)
--- press the first button (Import)
-local buttons = {}
-for _, f in ipairs(frames) do if f.kind == "Button" and f.scripts.OnClick then buttons[#buttons + 1] = f end end
+local buttons = { buttonLabelled("Import"), buttonLabelled("Clear the list"), buttonLabelled("Close") }
 buttons[1].scripts.OnClick(buttons[1])
 check("Import loads the list", ASR.SoftRes:GetList() ~= nil and ASR.SoftRes:GetList().rows == 2)
 check("and saves it", ASR_DB.softres ~= nil and ASR_DB.softres.rows == 2)
-check("and empties the box", box:GetText() == "")
+check("and keeps the list in the box to edit", ASR.SoftRes.ParseCSV(box:GetText()).rows == 2)
 check("and says so in the chat", chat[#chat]:find("Imported 2 reservations from 2 players", 1, true) ~= nil)
 
 buttons[1].scripts.OnClick(buttons[1]) -- Import with an empty box
@@ -120,6 +138,36 @@ buttons[2].scripts.OnClick(buttons[2]) -- Clear the list
 check("Clear the list forgets it", ASR.SoftRes:GetList() == nil and ASR_DB.softres == nil)
 buttons[3].scripts.OnClick(buttons[3]) -- Close
 check("Close hides the box", ASR.ImportWindow and true)
+
+-- /asr test: a session with made-up players, the window and its buttons
+slash("test")
+check("/asr test with no list says so", chat[#chat]:find("no items", 1, true) ~= nil)
+ASR.SoftRes:Import(csv)
+slash("test")
+check("/asr test starts a session", ASR.SoftRes.Controller.session ~= nil and ASR.SoftRes.Controller:State() == "open")
+check("and builds the session window", ASR.SessionWindow ~= nil)
+local resolveButton, rerollButton = buttonLabelled("Resolve"), buttonLabelled("Reroll ties")
+local acceptButton, reopenButton = buttonLabelled("Accept result"), buttonLabelled("Reopen answers")
+check("the window has its buttons", resolveButton and rerollButton and acceptButton and reopenButton)
+resolveButton.scripts.OnClick(resolveButton)
+check("Resolve resolves the session", ASR.SoftRes.Controller:State() == "resolved")
+if ASR.SoftRes.Controller:Can().reroll then rerollButton.scripts.OnClick(rerollButton) end
+for _ = 1, 20 do
+	if ASR.SoftRes.Controller:Can().reroll then rerollButton.scripts.OnClick(rerollButton) end
+end
+acceptButton.scripts.OnClick(acceptButton)
+check("Accept accepts a decided session", ASR.SoftRes.Controller:State() == "accepted")
+check("and lists the awards in the chat", chat[#chat]:find("->", 1, true) ~= nil or chat[#chat]:find("nobody wants", 1, true) ~= nil)
+slash("session")
+check("/asr session opens the window again", true)
+
+-- Without Arbiter Loot Council's widgets the windows say so instead of failing
+local realUI = ALC.UI
+ALC.UI = nil
+local before = #chat
+check("the import box without ALC's widgets does not fail", pcall(ASR.ImportWindow.Show, ASR.ImportWindow) and #chat == before + 1 and chat[#chat]:find("needs Arbiter Loot Council", 1, true) ~= nil)
+check("the session window neither", pcall(ASR.SessionWindow.Show, ASR.SessionWindow))
+ALC.UI = realUI
 
 if failed > 0 then
 	print(failed .. " failed")

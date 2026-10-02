@@ -1,6 +1,8 @@
 # What ASR needs from Arbiter Loot Council (API sketch)
 
-Status 2026-10-01. A sketch on paper: **nothing in ALC has been changed**, and nothing will be until the soft reserve flow has been tried as a prototype. The aim is the smallest API that lets ASR do its job, with every change inert when ASR is not installed.
+**Status 2026-10-02: built** on the ALC branch `asr-api` (ALC `API_VERSION` 4, documented in ALC's `ROADMAP.md`): `ALC.HasAPI` / `RegisterExtension`; `Sessions:StartItems(list, options)` with `mode`, `extra`, `responses` and `rolls`; `Candidates:SetRoll`; the `RESULT` message with the Result window and the "SR" tag (`extra.mark` / `markFor`); and `Awards:AwardMany` with the "Award all" question. ASR uses them in `SoftRes/Bridge.lua` (`/asr start`). What follows below is the original sketch (2026-10-01), kept for the reasons behind the choices; where it differs, the code and ALC's ROADMAP are right.
+
+Status 2026-10-01 (the sketch). A sketch on paper: **nothing in ALC has been changed**, and nothing will be until the soft reserve flow has been tried as a prototype. The aim is the smallest API that lets ASR do its job, with every change inert when ASR is not installed.
 
 ## How ALC works today (the parts that matter)
 

@@ -61,6 +61,29 @@ local ASR2 = { db = ASR.db }
 assert(loadfile("SoftRes/Import.lua"))("ArbiterSoftReserve", ASR2)
 check("a saved list is found after a reload", ASR2.SoftRes:GetList() == parsed and ASR2.SoftRes:IsReserver("Erikdbest Moo", 28830))
 
+
+-- The loaded list as text again (to edit in the box), and one reservation added by hand
+local ASR3 = {}
+assert(loadfile("SoftRes/Import.lua"))("ArbiterSoftReserve", ASR3)
+ASR3.SoftRes:Import(csv)
+local round = SoftRes.ParseCSV(ASR3.SoftRes:ToCSV())
+check("the list written as CSV reads back the same", round ~= nil and round.rows == 5 and round.players == 3
+	and round.reserves[29764][2].name == "Erikdbest" and round.reserves[29764][2].class == "Warrior")
+check("an empty list is empty text", SoftRes.ToCSV({ GetList = function() return nil end }) == "")
+check("a name with a comma survives", (function()
+	local x = {}
+	assert(loadfile("SoftRes/Import.lua"))("ArbiterSoftReserve", x)
+	x.SoftRes:Import("Item ID,Raider Name\n1,\"Doe, Jane\"")
+	local back = SoftRes.ParseCSV(x.SoftRes:ToCSV())
+	return back and back.reserves[1][1].name == "Doe, Jane"
+end)())
+local added = ASR3.SoftRes:Add(12345, "Allemano")
+check("one reservation can be added", added and added.rows == 6 and ASR3.SoftRes:IsReserver("Allemano", 12345))
+check("the old ones are still there", ASR3.SoftRes:IsReserver("Gavztahx", 28800))
+local fresh = {}
+assert(loadfile("SoftRes/Import.lua"))("ArbiterSoftReserve", fresh)
+check("adding starts a list when there is none", fresh.SoftRes:Add(7, "Solo") and fresh.SoftRes:GetList().rows == 1)
+check("a bad item is refused", select(2, fresh.SoftRes:Add("x", "Solo")) ~= nil and select(2, fresh.SoftRes:Add(7, "")) ~= nil)
 if failed > 0 then
 	print(failed .. " failed")
 	os.exit(1)

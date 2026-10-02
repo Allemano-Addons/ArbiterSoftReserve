@@ -27,6 +27,10 @@ softres.it CSV (`Item Name,Item ID,From,Raider Name,Raider Class,Raider Spec,Rai
 
 Every ALC change is made on a branch with ALC's tests and goes out as an ordinary beta.
 
+## Status 2026-10-02
+
+Built: the engine and import, the tooltip, the session window (`SessionWindow.lua`, ALC's look with ASR's purple mark), `/asr test` (made-up players), and the live bridge to ALC (`/asr start`: answers read from ALC, rolls handed back, results shown to everybody, one "Award all" question). Tested offline, including `Tools/alc_integration.lua` against the real ALC code (run from the ALC folder). Not yet tested with a second player.
+
 ## Order of work
 
 1. Engine and import with tests (done).
