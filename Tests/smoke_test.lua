@@ -67,6 +67,8 @@ ALC = { UI = {
 		b.labelText = label
 		b.scripts.OnClick = function(self) if b.available ~= false then onClick(self) end end
 		function b:SetAvailable(on) self.available = on and true or false end
+		function b:SetSelected(on) self.selected = on and true or false end
+		function b:SetLabel(text) self.labelText = text end
 		return b
 	end,
 	NewScrollBar = function() local b = newFrame("Button") function b:Update() end return b end,
@@ -160,6 +162,50 @@ check("Accept accepts a decided session", ASR.SoftRes.Controller:State() == "acc
 check("and lists the awards in the chat", chat[#chat]:find("->", 1, true) ~= nil or chat[#chat]:find("nobody wants", 1, true) ~= nil)
 slash("session")
 check("/asr session opens the window again", true)
+
+-- /asr trades: the trade queue view (ALC's queue; here a stand-in with one item)
+local queue = { { id = 7, itemID = 29764, itemString = "item:29764", winner = "Allemano Moo" } }
+ALC.Trades = { GetPending = function() return queue end, MarkDone = function(_, id) queue = {} return true end, StartTrade = function() return false, "too far" end }
+ALC.LootDetection = { GetItemDisplay = function() return { name = "Item", quality = 4, icon = 1 } end, GetTradeTimeLeft = function() return 3600 end }
+ALC.LootWindow = { FormatTradeTime = function() return "1h 0m" end }
+slash("trades")
+check("/asr trades opens the trade queue", buttonLabelled("Trade queue (1)") ~= nil)
+local tradeButton, doneButton = buttonLabelled("Trade"), buttonLabelled("Done")
+check("a row has Trade and Done", tradeButton and doneButton)
+tradeButton.scripts.OnClick(tradeButton)
+doneButton.scripts.OnClick(doneButton)
+check("Done takes the item out of the queue", #queue == 0)
+ASR.SessionWindow:SetView("session")
+ASR.SessionWindow:SetView("trades")
+ALC.Trades, ALC.LootDetection, ALC.LootWindow = nil, nil, nil
+check("the view survives an ALC without a queue", pcall(ASR.SessionWindow.Refresh, ASR.SessionWindow))
+ASR.SessionWindow:Hide()
+
+-- /asr results: the window on what was recorded
+local History = ASR.SoftRes.History
+slash("results")
+check("/asr results opens the window on an empty history", ASR.ResultsWindow ~= nil)
+History.Record("sid-1", 1, 29764, "accepted", {
+	{ name = "Allemano", answer = "MS", roll = 80, outcome = "won", via = "SR", reserved = true },
+	{ name = "Erikdbest", answer = "OS", roll = 12, rerolls = { 40 }, outcome = "lost" },
+	{ name = "Tester", answer = "PASS", outcome = "passed", reserved = true, silent = true },
+}, 1759500000, "Allemano Moo")
+History.Record("sid-1", 2, 28830, "resolved", { { name = "Erikdbest", answer = "MS", roll = 55, outcome = "tied" } }, 1759500000)
+History.Record("sid-2", 1, 29764, "accepted", { { name = "Erikdbest", answer = "MS", roll = 90, outcome = "won", via = "MS" } }, 1759600000)
+check("results opens with something recorded", pcall(ASR.ResultsWindow.Show, ASR.ResultsWindow))
+local byPlayerButton, byItemButton = buttonLabelled("By player"), buttonLabelled("By item")
+check("the window has its two views", byPlayerButton and byItemButton)
+byPlayerButton.scripts.OnClick(byPlayerButton)
+local prevButton, nextButton = buttonLabelled("<"), buttonLabelled(">")
+prevButton.scripts.OnClick(prevButton)
+nextButton.scripts.OnClick(nextButton)
+byItemButton.scripts.OnClick(byItemButton)
+check("it works through sessions and views", ASR.ResultsWindow ~= nil)
+slash("results clear")
+check("/asr results clear forgets the history", #History.Sessions() == 0)
+check("and says so", chat[#chat]:find("cleared", 1, true) ~= nil)
+slash("results")
+slash("results")
 
 -- Without Arbiter Loot Council's widgets the windows say so instead of failing
 local realUI = ALC.UI

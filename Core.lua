@@ -23,9 +23,12 @@ frame:SetScript("OnEvent", function(_, event, name)
 		ASR.version = getMetadata and getMetadata(addonName, "Version") or "?"
 	elseif event == "PLAYER_LOGIN" then
 		ASR.SoftRes.InstallTooltip()
-		-- Tell ALC we are here, when it is new enough to ask (ALC 0.3.4 has no API; sessions need ALC 0.4.0-beta).
+		-- Tell ALC we are here, when it is new enough to ask (ALC 0.3.4 has no API; sessions need ALC 0.4.1-beta).
 		if ALC and ALC.RegisterExtension then ALC.RegisterExtension("ArbiterSoftReserve", ASR.version) end
 		pcall(ASR.SoftRes.Bridge.Init)
+		pcall(ASR.SoftRes.Bridge.RegisterStartMode)
+		pcall(ASR.SoftRes.Bridge.RegisterLauncherEntries)
+		pcall(ASR.SoftRes.History.Init)
 	end
 end)
 

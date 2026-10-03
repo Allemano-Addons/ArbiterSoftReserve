@@ -46,15 +46,16 @@ ALC = {
 		SetRoll = function(_, name, roll, slot) rolled[#rolled + 1] = { name = name, roll = roll, slot = slot } return true end,
 	},
 }
-check("ALC API 1 is too old", Bridge.Available() == false and select(2, Bridge.Available()):find("API 4", 1, true) ~= nil)
-api = 3
-check("and so is API 3 (no Award all yet)", Bridge.Available() == false)
+check("ALC API 1 is too old", Bridge.Available() == false and select(2, Bridge.Available()):find("API 5", 1, true) ~= nil)
 api = 4
-check("ALC API 4 is fine", Bridge.Available() == true)
+check("and so is API 4 (no Start SR button yet)", Bridge.Available() == false)
+api = 5
+check("ALC API 5 is fine", Bridge.Available() == true)
 
 -- The options
 local options = Bridge.Options({ 29764, 29764, 28830, 99999 })
 check("the mode is SR and ALC does not roll", options.mode == "SR" and options.rolls == false)
+check("it has a name and ASR's purple for ALC's windows", options.modeName == "Soft Reserve" and options.modeColor == "9B7BFF")
 check("the answers are MS, OS and Pass last", #options.responses == 3 and options.responses[1].id == "MS" and options.responses[3].id == "PASS")
 check("each item says who reserved it, for the SR tag", options.extra[1].mark == "SR" and options.extra[1].markFor[1] == "Allemano" and options.extra[1].markFor[2] == "Erikdbest" and options.extra[3].markFor[1] == "Erikdbest")
 check("and how many copies there are", options.extra[1].copies == 2 and options.extra[2].copies == 2 and options.extra[3].copies == 1)
@@ -131,6 +132,23 @@ local sent = published[1].rows
 check("with a row per player", #sent >= 3 and sent[1].name and sent[1].answer and sent[1].outcome)
 check("winners come first", sent[1].outcome == "won")
 check("nothing ASR keeps for itself is sent", sent[1].class == nil and sent[1].entry == nil)
+local silentRow
+for _, r in ipairs(sent) do if r.silent then silentRow = r end end
+for _, r in ipairs(sent) do if r.waiting then silentRow = nil break end end
+check("a reserver who never answered is sent as a Pass with the silent flag",
+	silentRow == nil or (silentRow.answer == "PASS" and silentRow.outcome == "passed" and silentRow.reserved == true and silentRow.roll == nil))
+local waiting = { name = "Silent Reserver", waiting = true, reserved = true, outcome = "silent" }
+local s1 = Controller.session.groups[1]
+local realRows = Controller.Rows
+Controller.Rows = function(self, group) local rows = realRows(self, group) rows[#rows + 1] = waiting return rows end
+published = {}
+Bridge.PublishResults("resolved")
+Controller.Rows = realRows
+local last = published[1].rows[#published[1].rows]
+check("a reserver who has not answered goes out as a silent Pass", last.name == "Silent Reserver" and last.answer == "PASS" and last.outcome == "passed"
+	and last.silent == true and last.reserved == true and last.roll == nil and last.waiting == nil)
+published = {}
+Bridge.PublishResults("resolved")
 published = {}
 Controller.session:Reopen()
 Bridge.PublishResults("resolved")
@@ -185,6 +203,38 @@ check("another session ending changes nothing", Controller.live == "sid-1")
 handlers.ALC_SESSION_ENDED(nil, "sid-1")
 check("ours ending clears the live mark", Controller.live == nil)
 check("the window redraws", ASR.SessionWindow.refreshed > refreshed)
+
+-- ALC's Loot window: "Start SR"
+local registered
+ALC.RegisterStartMode = function(def) registered = def return true end
+check("the start button is registered with ALC", Bridge.RegisterStartMode() == true and registered.id == "SR" and registered.label == "SR"
+	and registered.name == "Soft Reserve" and registered.color == "9B7BFF" and type(registered.start) == "function")
+local before = #started
+local okLinks = registered.start({ "item:29764:0:0:0", "|cff1eff00|Hitem:28830::::::::70:|h[Gruul]|h|r", 4711 })
+check("the items of the Loot window start a soft reserve session", okLinks == true and #started == before + 1
+	and started[#started].list[1] == 29764 and started[#started].list[2] == 28830 and started[#started].list[3] == 4711
+	and started[#started].options.mode == "SR")
+local entries = {}
+ALC.RegisterLauncherEntry = function(def) entries[#entries + 1] = def return true end
+check("ASR adds its rows to ALC's window menu", Bridge.RegisterLauncherEntries() == true and #entries == 3)
+check("under the Soft Reserve heading in ASR's colour", entries[1].section == "Soft Reserve" and entries[1].color == "9B7BFF" and entries[1].id == "asr-results")
+local keptSession = Controller.session
+Controller.session = nil
+check("Results is always available, the session only when there is one", entries[1].available == nil and entries[2].available() == false
+	and select(2, entries[2].available()):find("/asr start", 1, true) ~= nil)
+Controller.session = keptSession
+check("and it is there while a session runs", entries[2].available() == true)
+check("Results and Import open ASR's windows", (function()
+	local shown = {}
+	ASR.ResultsWindow = { Toggle = function() shown.results = true end }
+	ASR.ImportWindow = { Show = function() shown.import = true end }
+	entries[1].open()
+	entries[3].open()
+	return shown.results and shown.import
+end)())
+api = 4
+check("an ALC without the API adds no button", Bridge.RegisterStartMode() == false and Bridge.RegisterLauncherEntries() == false)
+api = 5
 
 if failed > 0 then
 	print(failed .. " failed")

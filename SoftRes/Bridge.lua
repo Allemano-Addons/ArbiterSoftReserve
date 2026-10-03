@@ -18,8 +18,10 @@ ASR.SoftRes = SoftRes
 local Bridge = {}
 SoftRes.Bridge = Bridge
 
-Bridge.REQUIRED_API = 4
+Bridge.REQUIRED_API = 5
 Bridge.MODE = "SR"
+Bridge.NAME = "Soft Reserve" -- shown in the titles of ALC's windows for this kind of session
+Bridge.COLOR = "9B7BFF"      -- ASR's purple: the mark and the accent in those windows
 Bridge.MAX_LIST = 40 -- the longest list of names ALC accepts in an item's data
 
 local function responses()
@@ -57,7 +59,7 @@ function Bridge.Options(itemIDs)
 		if #names > 0 then data.mark, data.markFor = "SR", names end
 		extra[slot] = data
 	end
-	return { mode = Bridge.MODE, responses = responses(), rolls = false, extra = extra }
+	return { mode = Bridge.MODE, modeName = Bridge.NAME, modeColor = Bridge.COLOR, responses = responses(), rolls = false, extra = extra }
 end
 
 -- Starts the session in ALC. The ASR session is made when ALC announces it (see Init). Returns true, or false
@@ -67,6 +69,43 @@ function Bridge.Start(itemIDs)
 	if not ok then return false, message end
 	if type(itemIDs) ~= "table" or #itemIDs == 0 then return false, "There are no items." end
 	return ALC.Sessions:StartItems(itemIDs, Bridge.Options(itemIDs))
+end
+
+-- ALC's Loot window offers "Start SR" next to its normal Start. It hands over the item links of the items the
+-- loot master picked; the session is started here, with the soft reserve options. Returns true or false, message.
+function Bridge.StartFromLinks(links)
+	local ids = {}
+	for _, link in ipairs(links or {}) do
+		local id = tonumber(tostring(link):match("item:(%d+)")) or tonumber(link)
+		if id then ids[#ids + 1] = id end
+	end
+	return Bridge.Start(ids)
+end
+
+-- Adds that button to ALC's Loot window (ALC API 5). Returns true, or false and why not.
+function Bridge.RegisterStartMode()
+	if not (ALC and ALC.RegisterStartMode and Bridge.Available()) then return false, "ALC cannot add a start button." end
+	return ALC.RegisterStartMode({
+		id = Bridge.MODE, label = "SR", name = Bridge.NAME, color = Bridge.COLOR,
+		start = Bridge.StartFromLinks,
+	})
+end
+
+-- Adds ASR's rows to ALC's window menu (the minimap button), under a "Soft Reserve" heading: Results for everybody,
+-- the session window and the import box for the loot master. Returns true, or false and why not.
+function Bridge.RegisterLauncherEntries()
+	if not (ALC and ALC.RegisterLauncherEntry and Bridge.Available()) then return false, "ALC has no window menu to add to." end
+	local function entry(id, label, icon, available, open)
+		return ALC.RegisterLauncherEntry({ id = "asr-" .. id, label = label, icon = icon, section = Bridge.NAME, color = Bridge.COLOR,
+			available = available, open = open })
+	end
+	entry("results", "Results", "summary", nil, function() ASR.ResultsWindow:Toggle() end)
+	entry("session", "Session", "council", function()
+		if not SoftRes.Controller.session then return false, "Needs a soft reserve session (/asr start)." end
+		return true
+	end, function() ASR.SessionWindow:Show() end)
+	entry("import", "Import list", "note", nil, function() ASR.ImportWindow:Show() end)
+	return true
 end
 
 -- Reads the answers ALC has collected into the running ASR session. A group of copies is answered on any of its
@@ -128,10 +167,16 @@ local function wireRows(rows)
 			rerolls = {}
 			for i = math.max(1, #row.rerolls - 9), #row.rerolls do rerolls[#rerolls + 1] = row.rerolls[i] end
 		end
-		out[#out + 1] = {
-			name = row.name, answer = row.answer, roll = row.roll, rerolls = rerolls,
-			outcome = row.outcome, via = row.via, reserved = row.reserved or nil,
-		}
+		if row.waiting then
+			-- reserved the item and never answered: sent as a Pass (ALC versions that do not know the flag show
+			-- "Passed"), flagged so newer ones say "Did not answer"
+			out[#out + 1] = { name = row.name, answer = "PASS", outcome = "passed", reserved = true, silent = true }
+		else
+			out[#out + 1] = {
+				name = row.name, answer = row.answer, roll = row.roll, rerolls = rerolls,
+				outcome = row.outcome, via = row.via, reserved = row.reserved or nil,
+			}
+		end
 	end
 	return out
 end
@@ -146,7 +191,13 @@ function Bridge.PublishResults(state)
 	local count = 0
 	for _, group in ipairs(session.groups) do
 		local rows = group.result and wireRows(Controller:Rows(group)) or {}
-		if ALC.Results:Publish(group.slots[1], state, rows) then count = count + 1 end
+		if ALC.Results:Publish(group.slots[1], state, rows) then
+			count = count + 1
+			-- the loot master keeps the same rows for /asr results (the players keep what they receive)
+			if SoftRes.History and Controller.live then
+				SoftRes.History.Record(Controller.live, group.slots[1], group.itemID, state, rows, time(), UnitName and UnitName("player"))
+			end
+		end
 	end
 	return count
 end
@@ -204,6 +255,7 @@ function Bridge.Init()
 		local Controller = SoftRes.Controller
 		if Controller.live == sid then
 			Controller.live = nil
+			Controller.wasLive = true -- the window says the session has ended, not that it was a test
 			if ASR.SessionWindow then ASR.SessionWindow:Refresh() end
 		end
 	end)

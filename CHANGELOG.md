@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1-alpha
+- **Start SR in the Loot window.** Arbiter Loot Council's Loot window now has **Start LC** and **Start SR** on every item (and **Start all LC** / **Start all SR**), so you pick the kind of session per item. `/asr start` still works. **Needs Arbiter Loot Council 0.4.1-beta or newer.**
+- **`/asr results`: what every session decided.** Pick a session (the last 15 are kept), then look at it **by item** (the winner and every player's answer, roll and result) or **by player** (what one player rolled for and won). It records what every player saw, so it works for everybody with ASR, not only the loot master. `/asr results clear` forgets it.
+- **Players who reserved an item and have not answered are listed** in the session window ("Waiting", first in the list, in amber) and the item row says "SR 1/2". After Resolve they are listed last as "Did not answer, no roll", also in everybody's Result window.
+- **Soft Reserve in the minimap button's menu.** Click Arbiter Loot Council's minimap button and there is a purple **Soft Reserve** heading with **Results** (for every raider), **Session** and **Import list**. No extra button on the minimap.
+- **A countdown in the session window** ("Time left 0:53", "Time is up: press Resolve", or "Paused") so you know when to press Resolve.
+- **The trade queue in the session window** (the **Trade queue** button in the header, or `/asr trades`): the items you awarded that still have to be handed to the winner, with **Trade** (opens the trade with the winner) and **Done**, and the Bind-on-Pickup time left. It is Arbiter Loot Council's own queue.
+- **Reopen answers asks first**, because it throws all rolls and the result away.
+- **A more compact session window:** as tall as its content (about 300 px for one item), narrower, with lower rows.
+- Soft reserve sessions look like Soft Reserve: the players' response window is called "Soft Reserve response" with ASR's purple mark, and the item in the loot master's Loot window is framed in purple while it is in session.
+
 ## 0.2.0-alpha
 - **Soft reserve sessions.** `/asr start` (loot master) starts a session in Arbiter Loot Council for the items of your list (or for items you shift-click after it: `/asr start [item] [item]`). Everybody answers **MS**, **OS** or **Pass**, and the items you reserved are tagged **SR** in your response window. **Needs Arbiter Loot Council 0.4.0-beta or newer** (every player who answers needs the same ALC; the loot master needs both addons).
 - **The session window** (loot master) in the look of Arbiter Loot Council: the items on the left with how many answered what, every player's answer and roll on the right. **Resolve** rolls for everybody once and applies the rules (reservers first, then open MS, then OS; the highest rolls win), **Reroll ties** rolls again only for the players who tied, **Reopen answers** takes the rolls back, **Pause** and **Stop session** are there too.

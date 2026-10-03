@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Arbiter Soft Reserve
-## Notes: Soft reserve for Arbiter Loot Council: import a softres.it list, run a session where everybody answers, roll once, show every roll to everybody and hand out all the winners. Needs Arbiter Loot Council 0.4.0-beta or newer.
-## Version: 0.2.0-alpha
+## Notes: Soft reserve for Arbiter Loot Council: import a softres.it list, run a session where everybody answers, roll once, show every roll to everybody and hand out all the winners. Needs Arbiter Loot Council 0.4.1-beta or newer.
+## Version: 0.2.1-alpha
 ## Author: Allemano
 ## Category: Raid
 ## X-Curse-Project-ID: 1721476
@@ -13,8 +13,10 @@ SoftRes\Import.lua
 SoftRes\Rules.lua
 SoftRes\Session.lua
 SoftRes\Controller.lua
+SoftRes\History.lua
 SoftRes\Bridge.lua
 SoftRes\Tooltip.lua
 ImportWindow.lua
 SessionWindow.lua
+ResultsWindow.lua
 Commands.lua

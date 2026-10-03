@@ -51,6 +51,7 @@ function Controller:Start(itemIDs)
 	if #items == 0 then return nil, "There are no items." end
 	self.session = SoftRes.Session.New(items)
 	self.live = nil -- set by the bridge when ALC runs the session
+	self.wasLive = nil
 	return self.session
 end
 
@@ -81,7 +82,13 @@ function Controller:GroupInfo(group)
 	local counts = session:Counts(slot)
 	info.counts = counts
 	if session.state == "open" or not group.result then
-		info.status = ("SR %d · MS %d · OS %d · Pass %d"):format(counts.reservers, counts.MS, counts.OS, counts.PASS)
+		-- "SR 1/2": how many of those who reserved the item have answered
+		local reservers = self:Reservers(group)
+		local answered = 0
+		for _, reserver in ipairs(reservers) do if reserver.answered then answered = answered + 1 end end
+		info.waiting = #reservers - answered
+		local sr = #reservers > 0 and ("SR %d/%d · "):format(answered, #reservers) or ""
+		info.status = sr .. ("MS %d · OS %d · Pass %d"):format(counts.MS, counts.OS, counts.PASS)
 		return info
 	end
 	local result = group.result
@@ -185,5 +192,38 @@ function Controller:Rows(group)
 		end
 	end
 	for _, row in ipairs(rows) do row.class = classOf[string.lower(row.name)] end
-	return rows
+	-- The players who reserved the item and have not answered: first while answers are still coming in (so the
+	-- loot master sees who is missing), last once the rolls are made (they did not take part).
+	local waiting = {}
+	for _, reserver in ipairs(self:Reservers(group)) do
+		if not reserver.answered then
+			waiting[#waiting + 1] = { name = reserver.name, class = reserver.class, reserved = true, waiting = true,
+				outcome = group.result and "silent" or nil }
+		end
+	end
+	if group.result then
+		for _, row in ipairs(waiting) do rows[#rows + 1] = row end
+		return rows
+	end
+	for _, row in ipairs(rows) do waiting[#waiting + 1] = row end
+	return waiting
+end
+
+-- Everybody who reserved the item, once each: { { name, class, answered } }. A reserver has answered when
+-- somebody of that name (a name without a surname matches every character with it) said MS, OS or Pass.
+function Controller:Reservers(group)
+	local list, seen = {}, {}
+	if not group then return list end
+	for _, reserver in ipairs(SoftRes:GetReservers(group.itemID)) do
+		local key = string.lower(reserver.name)
+		if not seen[key] then
+			seen[key] = true
+			local answered = false
+			for _, k in ipairs(group.order) do
+				if SoftRes.SameCharacter(reserver.name, group.entries[k].name) then answered = true break end
+			end
+			list[#list + 1] = { name = reserver.name, class = (reserver.class ~= "" and reserver.class) or nil, answered = answered }
+		end
+	end
+	return list
 end

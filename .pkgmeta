@@ -1,5 +1,9 @@
 package-as: ArbiterSoftReserve
 
+# On CurseForge this addon needs Arbiter Loot Council (the project's slug), so the app installs it too.
+required-dependencies:
+  - arbiter-loot-council
+
 ignore:
   - .luacheckrc
   - .gitattributes

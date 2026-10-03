@@ -61,7 +61,7 @@ check("fill works", Controller:FillTest(rng()) == true)
 local group = session.groups[1]
 local info = Controller:GroupInfo(group)
 check("the item row counts the answers", info.itemID == 29764 and info.copies == 2 and info.counts.reservers == 2 and info.counts.MS == 6)
-check("and says so while open", info.status == "SR 2 · MS 6 · OS 0 · Pass 0")
+check("and says so while open", info.status == "SR 2/2 · MS 6 · OS 0 · Pass 0" and info.waiting == 0)
 check("only Resolve can be pressed", Controller:Can().resolve and not Controller:Can().reroll and not Controller:Can().accept)
 
 -- Resolve with fixed rolls: the two reservers (2 copies) win without a tie
@@ -118,6 +118,28 @@ local after = Controller:Rows(session.groups[1])
 check("after Resolve the rows have rolls and outcomes", #after == 6 and after[1].roll == 50 and after[1].outcome ~= nil)
 check("a reserver row carries the class from the list", before[1].class == "Druid" and before[3].class == nil)
 check("no group, no rows", #Controller:Rows(nil) == 0)
+
+-- A reserver who has not answered is listed, first while answers come in and last after Resolve
+Controller:Start({ 29764 })
+session = Controller.session
+session:Answer(1, "Erikdbest", "MS")
+local g = session.groups[1]
+local open = Controller:Rows(g)
+check("a reserver who has not answered is listed first", #open == 2 and open[1].name == "Allemano" and open[1].waiting == true and open[1].reserved == true)
+check("then the ones who answered", open[2].name == "Erikdbest" and open[2].waiting == nil)
+check("the item row counts them", Controller:GroupInfo(g).status == "SR 1/2 · MS 1 · OS 0 · Pass 0" and Controller:GroupInfo(g).waiting == 1)
+session:Answer(1, "Allemano Moo", "PASS")
+check("a passer has answered, a surname matches the list's first name", Controller:GroupInfo(g).waiting == 0 and Controller:GroupInfo(g).status:find("SR 2/2", 1, true) ~= nil)
+Controller:Start({ 29764 })
+session = Controller.session
+session:Answer(1, "Erikdbest", "MS")
+session:Resolve(function() return 50 end)
+local done = Controller:Rows(session.groups[1])
+check("after Resolve the silent reserver comes last", #done == 2 and done[1].name == "Erikdbest" and done[2].waiting == true and done[2].outcome == "silent")
+check("an item nobody reserved has no SR part", (function()
+	Controller:Start({ 12345 })
+	return Controller:GroupInfo(Controller.session.groups[1]).status == "MS 0 · OS 0 · Pass 0"
+end)())
 
 if failed > 0 then
 	print(failed .. " failed")

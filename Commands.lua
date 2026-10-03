@@ -24,6 +24,8 @@ local HELP = {
 	"/asr start [items]: start a real soft reserve session in Arbiter Loot Council (loot master)",
 	"/asr test [items]: try a session with made-up players (items from the list, or links/IDs)",
 	"/asr session: open the session window again",
+	"/asr trades: the trade queue of Arbiter Loot Council (items awarded that still have to be traded)",
+	"/asr results [clear]: who got what and what everybody rolled, in the last sessions",
 	"/asr clear: forget the list",
 	"/asr tooltip on|off: the \"Soft reserved by\" line in item tooltips",
 }
@@ -61,6 +63,16 @@ function Commands.Run(text)
 			Controller:FillTest()
 			ASR:Print(string.format("A test session with %d items. The players next to the real reservers are made up.", #ids))
 			ASR.SessionWindow:Show()
+		end
+	elseif word == "trades" then
+		ASR.SessionWindow:ShowTrades()
+	elseif word == "results" then
+		if strlower(rest) == "clear" then
+			ASR.SoftRes.History.Clear()
+			ASR:Print("The saved results are cleared.")
+			if ASR.ResultsWindow then ASR.ResultsWindow:Refresh() end
+		else
+			ASR.ResultsWindow:Toggle()
 		end
 	elseif word == "session" then
 		if not ASR.SessionWindow:Show() then ASR:Print("There is no session. Start a test with /asr test.") end
