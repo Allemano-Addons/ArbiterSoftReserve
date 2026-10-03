@@ -49,6 +49,6 @@ Because ASR is built on Arbiter Loot Council, a guild can run a **Loot Council o
 - No data leaves the game. The addon sends nothing to any website; it reads text you paste in.
 - Designed, directed and tested by Allemano, with AI assistance (Claude) for much of the code. See `CREDITS.md`.
 
-Part of **Allemano Addons**. Source code and issues: https://github.com/Allemano-Addons/ArbiterSoftReserve · Guides and changelog: https://allemano-site.pages.dev · Discord: https://discord.gg/BvFrTKUAst
+Part of **Allemano Addons**. Source code and issues: https://github.com/Allemano-Addons/ArbiterSoftReserve · Guides and changelog: https://allemano.org · Discord: https://discord.gg/BvFrTKUAst
 
 *World of Warcraft is a trademark of Blizzard Entertainment, Inc. Not affiliated with or endorsed by Blizzard Entertainment.*

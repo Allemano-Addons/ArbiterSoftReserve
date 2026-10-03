@@ -1,6 +1,6 @@
 # Credits
 
-**Arbiter Soft Reserve** is part of Allemano Addons (https://allemano-site.pages.dev).
+**Arbiter Soft Reserve** is part of Allemano Addons (https://allemano.org).
 
 ## How it is made
 
