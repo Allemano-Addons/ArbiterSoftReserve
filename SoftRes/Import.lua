@@ -145,6 +145,25 @@ end
 
 -- A reserve may carry only the first name ("Allemano"), a character on Forever has a surname
 -- ("Allemano Moo"): they are the same when the first names match.
+-- The class token ("DRUID", "DEATHKNIGHT") of a character, for colouring names: the player in the group if they are
+-- there, else the class the imported list gives for them on that item. nil when it is not known.
+function SoftRes.ClassOf(name, itemID)
+	if type(name) ~= "string" or name == "" then return nil end
+	if ALC and ALC.FindUnitByName and UnitClass then
+		local unit = ALC:FindUnitByName(name)
+		if unit then
+			local _, token = UnitClass(unit)
+			if token then return token end
+		end
+	end
+	for _, entry in ipairs(itemID and SoftRes:GetReservers(itemID) or {}) do
+		if SoftRes.SameCharacter(entry.name, name) and entry.class and entry.class ~= "" then
+			return (string.upper((entry.class:gsub("[^%a]", ""))))
+		end
+	end
+	return nil
+end
+
 function SoftRes.SameCharacter(reserveName, characterName)
 	local a, b = strlower(reserveName or ""), strlower(characterName or "")
 	if a == "" or b == "" then return false end

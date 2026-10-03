@@ -42,6 +42,7 @@ local function copyRows(rows)
 		out[i] = {
 			name = r.name, answer = r.answer, roll = r.roll, rerolls = rerolls, outcome = r.outcome,
 			via = r.via, reserved = r.reserved or nil, silent = r.silent or nil, disenchant = r.disenchant or nil,
+			class = r.class,
 		}
 	end
 	return out
@@ -49,13 +50,14 @@ end
 
 local strfind, strsub, tonumber = string.find, string.sub, tonumber
 
--- One row as a line: name, answer, roll, rerolls (comma-separated), outcome, via, flags (r = reserved, s = silent).
+-- One row as a line: name, answer, roll, rerolls (comma-separated), outcome, via, flags (r = reserved, s = silent,
+-- d = disenchant) and the class token for colouring the name.
 local function packRow(r)
 	local rerolls = ""
 	if r.rerolls and #r.rerolls > 0 then rerolls = table.concat(r.rerolls, ",") end
 	return table.concat({
 		r.name or "", r.answer or "", r.roll and tostring(r.roll) or "", rerolls, r.outcome or "", r.via or "",
-		(r.reserved and "r" or "") .. (r.silent and "s" or "") .. (r.disenchant and "d" or ""),
+		(r.reserved and "r" or "") .. (r.silent and "s" or "") .. (r.disenchant and "d" or ""), r.class or "",
 	}, "\t")
 end
 
@@ -95,7 +97,7 @@ local function unpack(packed)
 				name = f[1], answer = f[2] ~= "" and f[2] or nil, roll = tonumber(f[3]), rerolls = rerolls,
 				outcome = f[5] ~= "" and f[5] or nil, via = f[6] ~= "" and f[6] or nil,
 				reserved = flags:find("r", 1, true) and true or nil, silent = flags:find("s", 1, true) and true or nil,
-				disenchant = flags:find("d", 1, true) and true or nil,
+				disenchant = flags:find("d", 1, true) and true or nil, class = (f[8] and f[8] ~= "") and f[8] or nil,
 			}
 		end
 	end
@@ -127,7 +129,12 @@ function History.Record(sid, item, itemID, state, rows, when, lm)
 	if not rows or #rows == 0 then
 		session.items[item] = nil
 	else
-		session.items[item] = { itemID = itemID, state = state, packed = pack(copyRows(rows)) }
+		-- the class is known now (the player is in the group): keep it for colouring the name later
+		local copy = copyRows(rows)
+		for _, r in ipairs(copy) do
+			if not r.class and SoftRes.ClassOf then r.class = SoftRes.ClassOf(r.name, itemID) end
+		end
+		session.items[item] = { itemID = itemID, state = state, packed = pack(copy) }
 	end
 	if next(session.items) == nil then
 		for i, s in ipairs(list) do
@@ -203,15 +210,17 @@ function History.ByPlayer(session)
 			local key = strlower(r.name)
 			local p = players[key]
 			if not p then
-				p = { name = r.name, wins = 0, rolled = 0, entries = {} }
+				p = { name = r.name, wins = 0, rolled = 0, entries = {}, class = r.class }
 				players[key] = p
 				order[#order + 1] = p
 			end
+			if not p.class and r.class then p.class = r.class end
 			if r.outcome == "won" then p.wins = p.wins + 1 end
 			if r.roll then p.rolled = p.rolled + 1 end
 			p.entries[#p.entries + 1] = {
 				number = item.number, itemID = item.itemID, answer = r.answer, roll = r.roll, rerolls = r.rerolls,
 				outcome = r.outcome, via = r.via, reserved = r.reserved, silent = r.silent, disenchant = r.disenchant, state = item.state,
+				class = r.class,
 			}
 		end
 	end

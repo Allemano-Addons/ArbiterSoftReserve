@@ -84,6 +84,19 @@ local fresh = {}
 assert(loadfile("SoftRes/Import.lua"))("ArbiterSoftReserve", fresh)
 check("adding starts a list when there is none", fresh.SoftRes:Add(7, "Solo") and fresh.SoftRes:GetList().rows == 1)
 check("a bad item is refused", select(2, fresh.SoftRes:Add("x", "Solo")) ~= nil and select(2, fresh.SoftRes:Add(7, "")) ~= nil)
+-- The class of a character, for colouring names
+do
+	SoftRes:Import("Item Name,Item ID,From,Raider Name,Raider Class,Raider Spec,Raider Note,Extra Reserves,Date\n,29764,,Allemano,Death Knight,Frost,,0,x")
+	check("a class from the list is a token", SoftRes.ClassOf("Allemano Moo", 29764) == "DEATHKNIGHT")
+	check("an unknown player or item has no class", SoftRes.ClassOf("Nobody", 29764) == nil and SoftRes.ClassOf("Allemano", 1) == nil and SoftRes.ClassOf("", 29764) == nil and SoftRes.ClassOf(nil, 1) == nil)
+	local realFind, realClass = ALC, UnitClass
+	ALC = { FindUnitByName = function(_, name) if name == "Veyra Moo" then return "party1" end end }
+	UnitClass = function(unit) if unit == "party1" then return "Warrior", "WARRIOR" end end
+	check("a player in the group is read from the game first", SoftRes.ClassOf("Veyra Moo", 29764) == "WARRIOR")
+	check("and the list is the fallback", SoftRes.ClassOf("Allemano Moo", 29764) == "DEATHKNIGHT")
+	ALC, UnitClass = realFind, realClass
+end
+
 if failed > 0 then
 	print(failed .. " failed")
 	os.exit(1)

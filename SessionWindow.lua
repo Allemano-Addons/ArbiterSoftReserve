@@ -193,7 +193,14 @@ end
 -- Refresh
 -- ---------------------------------------------------------------------------
 
+local lastPhase -- "accepted" or "finishing" while the session is accepted (see UpdateTimer)
 local STATE_TEXT = { open = "WAITING FOR ANSWERS", resolved = "RESOLVED", accepted = "ACCEPTED" }
+local BANNER = {
+	open = "Answers come in as the players give them. Press Resolve when the time is up.",
+	resolved = "Rolled. Reroll ties if there are any, then Accept result.",
+	accepted = "Accepted. Award all hands out the winners.",
+	finishing = "All awarded. The session closes by itself; Close session ends it now.",
+}
 
 -- ---------------------------------------------------------------------------
 -- The trade queue (Arbiter Loot Council's): the items that were awarded and still have to be handed to the winner
@@ -305,6 +312,13 @@ function SessionWindow:UpdateTimer()
 	-- while so that an award can be undone. Say which, so it is clear that the session is not over yet.
 	if session and C.live and session.state == "accepted" and Sessions and Sessions.GetFinishLeft then
 		local finish = Sessions:GetFinishLeft()
+		-- the buttons and the line under the title follow this: when it changes, draw the window again
+		local phase = finish and "finishing" or "accepted"
+		if phase ~= lastPhase then
+			lastPhase = phase
+			self:Refresh()
+			return
+		end
 		if finish then
 			finish = math.ceil(finish)
 			timerText:SetTextColor(GREEN[1], GREEN[2], GREEN[3], 1)
@@ -313,6 +327,11 @@ function SessionWindow:UpdateTimer()
 			timerText:SetTextColor(c.gold[1], c.gold[2], c.gold[3], 1)
 			timerText:SetText("Accepted: not awarded yet")
 		end
+		return
+	end
+	if lastPhase and not (session and C.live and session.state == "accepted") then
+		lastPhase = nil
+		self:Refresh()
 		return
 	end
 	if not (session and C.live and session.state == "open" and Sessions and Sessions.GetTimeLeft) then
@@ -353,11 +372,21 @@ function SessionWindow:Refresh()
 		return
 	end
 	if not session then return end
-	stateTag:SetText(STATE_TEXT[session.state] or "")
+	-- a session that has ended in Arbiter Loot Council is "ENDED", whatever ASR's own state was
+	stateTag:SetText(C.wasLive and not C.live and "ENDED" or STATE_TEXT[session.state] or "")
 	self:UpdateTimer()
-	banner:SetText(C.live and "A soft reserve session in Arbiter Loot Council. Answers come in as the players give them; the rolls are made when you press Resolve."
-		or C.wasLive and "This session in Arbiter Loot Council has ended."
-		or "A test: the players next to the real reservers are made up, and nothing is handed out.")
+	-- one short line for where the session is
+	local line
+	if C.live then
+		local Sessions = ALC and ALC.Sessions
+		local finishing = session.state == "accepted" and Sessions and Sessions.GetFinishLeft and Sessions:GetFinishLeft() ~= nil
+		line = finishing and BANNER.finishing or BANNER[session.state] or BANNER.open
+	elseif C.wasLive then
+		line = "This session in Arbiter Loot Council has ended."
+	else
+		line = "A test: the players next to the real reservers are made up, and nothing is handed out."
+	end
+	banner:SetText(line)
 
 	local groups = session.groups
 	selected = math.max(1, math.min(selected, #groups))

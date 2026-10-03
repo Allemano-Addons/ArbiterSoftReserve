@@ -104,6 +104,21 @@ for i = 1, 100 do many[i] = { name = "Player" .. i, answer = "MS", roll = i, out
 History.Record("sid-big", 1, 1, "accepted", many, 1)
 check("a very long list is cut", #History.Rows(History.Sessions()[1].items[1]) == History.MAX_ROWS)
 
+-- The class of a player is kept with their row, for the colour of the name
+do
+	History.Clear()
+	ASR.SoftRes.ClassOf = function(name) if name == "Bob" then return "DRUID" end end
+	History.Record("sid-cls", 1, 66, "accepted", { { name = "Bob", answer = "MS", roll = 9, outcome = "won", via = "MS" }, { name = "Ann", answer = "MS", roll = 3, outcome = "lost" } }, 1)
+	local rows = History.Rows(History.Sessions()[1].items[1])
+	check("a row keeps the class the name had when it was recorded", rows[1].class == "DRUID" and rows[2].class == nil)
+	check("by item carries it", History.ByItem(History.Sessions()[1])[1].rows[1].class == "DRUID")
+	check("by player has the player's class", History.ByPlayer(History.Sessions()[1])[1].class == "DRUID" and History.ByPlayer(History.Sessions()[1])[1].entries[1].class == "DRUID")
+	History.Record("sid-cls", 1, 66, "accepted", { { name = "Cy", answer = "MS", roll = 1, outcome = "lost", class = "MAGE" } }, 1)
+	check("a class the row brings is not overwritten", History.Rows(History.Sessions()[1].items[1])[1].class == "MAGE")
+	ASR.SoftRes.ClassOf = nil
+	History.Clear()
+end
+
 -- From Arbiter Loot Council
 ALC = {
 	Sessions = { GetSession = function() return { sid = "sid-alc", lm = "Allemano Moo", items = { [1] = { itemID = 29764 } } } end },

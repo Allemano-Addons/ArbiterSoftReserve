@@ -56,6 +56,13 @@ local function when(t)
 	return fmt("%Y-%m-%d %H:%M", t or 0)
 end
 
+-- A name in its class colour (a |c code in the text), or the plain name when the class is not known.
+local function coloredName(name, class)
+	local color = class and UI.ClassColor(class)
+	if not color then return name end
+	return string.format("|cff%02x%02x%02x%s|r", math.floor(color[1] * 255 + 0.5), math.floor(color[2] * 255 + 0.5), math.floor(color[3] * 255 + 0.5), name)
+end
+
 local function rollText(row)
 	if row.silent or row.roll == nil then return "-" end
 	return Controller().RollText(row)
@@ -158,15 +165,26 @@ local function paintListRow(row, entry, index)
 		row.icon:SetTexture(icon or UNKNOWN_ICON)
 		local text
 		if entry.tied then text = "Tie, not decided"
-		elseif #entry.winners > 0 then text = "Winner: " .. table.concat(entry.winners, ", ")
-		elseif #entry.disenchanted > 0 then text = "Disenchanted by " .. table.concat(entry.disenchanted, ", ")
+		elseif #entry.winners > 0 then
+			local names = {}
+			for _, r in ipairs(entry.rows) do
+				if r.outcome == "won" then names[#names + 1] = coloredName(r.name, r.class) end
+			end
+			text = "Winner: " .. table.concat(names, ", ")
+		elseif #entry.disenchanted > 0 then
+			local names = {}
+			for _, r in ipairs(entry.rows) do
+				if r.disenchant then names[#names + 1] = coloredName(r.name, r.class) end
+			end
+			text = "Disenchanted by " .. table.concat(names, ", ")
 		else text = "Nobody won it" end
 		if entry.state ~= "accepted" and not entry.tied then text = text .. " (not accepted)" end
 		row.status:SetText(text)
 		local sc = (entry.tied or entry.state ~= "accepted") and c.gold or c.muted
 		row.status:SetTextColor(sc[1], sc[2], sc[3], 1)
 	else
-		row.name:SetTextColor(c.text[1], c.text[2], c.text[3], 1)
+		local nc = entry.class and UI.ClassColor(entry.class) or c.text
+		row.name:SetTextColor(nc[1], nc[2], nc[3], 1)
 		row.name:SetText(entry.name)
 		local first
 		for _, e in ipairs(entry.entries) do
@@ -219,7 +237,8 @@ local function paintLine(row, data)
 		row.name:SetTextColor(q[1], q[2], q[3], 1)
 		row.name:SetText(name)
 	else
-		row.name:SetTextColor(c.text[1], c.text[2], c.text[3], 1)
+		local nc = data.class and UI.ClassColor(data.class) or c.text
+		row.name:SetTextColor(nc[1], nc[2], nc[3], 1)
 		row.name:SetText(data.name)
 	end
 	row.answer:SetText(data.silent and "None" or (ANSWER[data.answer] or tostring(data.answer or "")))

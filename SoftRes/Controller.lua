@@ -202,7 +202,7 @@ function Controller:Rows(group)
 			rows[#rows + 1] = { name = entry.name, answer = entry.answer, reserved = session.isReserver(entry.name, group.itemID) }
 		end
 	end
-	for _, row in ipairs(rows) do row.class = classOf[string.lower(row.name)] end
+	for _, row in ipairs(rows) do row.class = classOf[string.lower(row.name)] or SoftRes.ClassOf(row.name, group.itemID) end
 	-- The players who reserved the item and have not answered: first while answers are still coming in (so the
 	-- loot master sees who is missing), last once the rolls are made (they did not take part).
 	local waiting = {}
