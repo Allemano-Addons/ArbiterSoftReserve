@@ -27,12 +27,12 @@ check("without a session id, an item or an item ID nothing is recorded",
 check("a second item joins the same session", History.Record("sid-1", 2, 28830, "resolved", { { name = "Erikdbest", answer = "MS", roll = 55, outcome = "tied" } }, 1000) == true
 	and #History.Sessions() == 1)
 rows1[1].roll = 1
-check("what was recorded is a copy", History.Sessions()[1].items[1].rows[1].roll == 80)
-check("the silent flag and the rerolls are kept", History.Sessions()[1].items[1].rows[3].silent == true and History.Sessions()[1].items[1].rows[2].rerolls[2] == 7)
+check("what was recorded is a copy", History.Rows(History.Sessions()[1].items[1])[1].roll == 80)
+check("the silent flag and the rerolls are kept", History.Rows(History.Sessions()[1].items[1])[3].silent == true and History.Rows(History.Sessions()[1].items[1])[2].rerolls[2] == 7)
 
 -- A later result of the same item replaces the earlier one
 History.Record("sid-1", 2, 28830, "accepted", { { name = "Erikdbest", answer = "MS", roll = 55, outcome = "won", via = "MS" } }, 1000)
-check("the latest result of an item wins", History.Sessions()[1].items[2].state == "accepted" and History.Sessions()[1].items[2].rows[1].outcome == "won")
+check("the latest result of an item wins", History.Sessions()[1].items[2].state == "accepted" and History.Rows(History.Sessions()[1].items[2])[1].outcome == "won")
 
 -- By item
 local session = History.Sessions()[1]
@@ -58,6 +58,26 @@ check("the same name in another case is the same player", (function()
 end)())
 check("a tie is shown as not decided", History.ByItem({ items = { [1] = { itemID = 1, state = "resolved", rows = { { name = "A", answer = "MS", roll = 5, outcome = "tied" } } } } })[1].tied == true)
 
+-- The rows are kept as text and come back the same; an older save with tables is read as it is
+local sample = { { name = "Bob Moo", answer = "OS", roll = 37, rerolls = { 90, 12 }, outcome = "won", via = "OS", reserved = true },
+	{ name = "Ann", answer = "PASS", outcome = "passed", reserved = true, silent = true }, { name = "Cy", answer = "MS", roll = 5, outcome = "lost" } }
+History.Record("sid-pack", 1, 77, "accepted", sample, 1)
+local packedItem = History.Sessions()[1].items[1]
+check("an item keeps its rows as one text", type(packedItem.packed) == "string" and packedItem.rows == nil)
+local back = History.Rows(packedItem)
+check("and gives them back as they were", #back == 3 and back[1].name == "Bob Moo" and back[1].roll == 37 and back[1].rerolls[2] == 12 and back[1].via == "OS" and back[1].reserved == true and back[1].silent == nil)
+check("with the flags, the missing roll and the empty fields right", back[2].silent == true and back[2].reserved == true and back[2].roll == nil and back[2].rerolls == nil and back[2].via == nil and back[3].reserved == nil and back[3].outcome == "lost")
+local deRows = { { name = "Bob", answer = "PASS", outcome = "passed", disenchant = true }, { name = "Ann", answer = "MS", roll = 5, outcome = "lost" } }
+History.Record("sid-de", 1, 55, "accepted", deRows, 1)
+local deItem = History.ByItem(History.Sessions()[1])[1]
+check("the disenchant flag survives the packed text", History.Rows(History.Sessions()[1].items[1])[1].disenchant == true and History.Rows(History.Sessions()[1].items[1])[2].disenchant == nil)
+check("by item says who the item was handed to", #deItem.disenchanted == 1 and deItem.disenchanted[1] == "Bob" and #deItem.winners == 0)
+check("by player carries the flag", History.ByPlayer(History.Sessions()[1])[1].entries[1].disenchant == true or History.ByPlayer(History.Sessions()[1])[2].entries[1].disenchant == true)
+History.Delete("sid-de")
+check("an older save with a table of rows is read as it is", History.Rows({ itemID = 1, rows = { { name = "Old", answer = "MS" } } })[1].name == "Old")
+check("a nothing is nothing", #History.Rows(nil) == 0 and #History.Rows({ itemID = 1 }) == 0)
+History.Delete("sid-pack")
+
 -- Newest first, at most MAX_SESSIONS
 for i = 2, History.MAX_SESSIONS + 3 do
 	History.Record("sid-" .. i, 1, 1, "accepted", { { name = "P", answer = "MS", roll = i, outcome = "won", via = "MS" } }, 1000 + i)
@@ -82,7 +102,7 @@ check("Clear forgets everything", #History.Sessions() == 0)
 local many = {}
 for i = 1, 100 do many[i] = { name = "Player" .. i, answer = "MS", roll = i, outcome = "lost" } end
 History.Record("sid-big", 1, 1, "accepted", many, 1)
-check("a very long list is cut", #History.Sessions()[1].items[1].rows == History.MAX_ROWS)
+check("a very long list is cut", #History.Rows(History.Sessions()[1].items[1]) == History.MAX_ROWS)
 
 -- From Arbiter Loot Council
 ALC = {

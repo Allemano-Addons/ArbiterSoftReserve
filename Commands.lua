@@ -27,6 +27,7 @@ local HELP = {
 	"/asr trades: the trade queue of Arbiter Loot Council (items awarded that still have to be traded)",
 	"/asr results [clear]: who got what and what everybody rolled, in the last sessions",
 	"/asr clear: forget the list",
+	"/asr disenchant on|off: hand the items nobody wanted to the disenchanter (on by default)",
 	"/asr tooltip on|off: the \"Soft reserved by\" line in item tooltips",
 }
 
@@ -91,6 +92,14 @@ function Commands.Run(text)
 	elseif word == "clear" then
 		ASR.SoftRes:Clear()
 		ASR:Print("The list was cleared.")
+	elseif word == "disenchant" then
+		rest = strlower(rest)
+		if rest == "on" or rest == "off" then
+			if ASR.db then ASR.db.disenchant = rest == "on" end
+			ASR:Print("Items nobody wanted " .. (rest == "on" and "are offered to the disenchanter" or "are left alone") .. " when you accept a result.")
+		else
+			ASR:Print("Usage: /asr disenchant on|off")
+		end
 	elseif word == "tooltip" then
 		rest = strlower(rest)
 		if rest == "on" or rest == "off" then

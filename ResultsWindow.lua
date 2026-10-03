@@ -10,7 +10,7 @@ local History = function() return ASR.SoftRes.History end
 local Controller = function() return ASR.SoftRes.Controller end
 
 local WIDTH, PAD = 780, 16
-local HEADER_H, TOOLBAR_H = 52, 52
+local HEADER_H, TOOLBAR_H = 40, 48
 local LIST_W, ROW_H, LIST_ROWS, LIST_GAP = 240, 46, 8, 4
 local LINE_H, LINE_ROWS, MIN_LINES = 24, 12, 3
 local TOP_H = HEADER_H + TOOLBAR_H
@@ -65,6 +65,7 @@ local VIA = { SR = "SR", MS = "MS", OS = "OS" }
 
 local function outcomeText(row)
 	if row.silent then return "Did not answer, no roll" end
+	if row.disenchant then return "Disenchanted" end
 	if row.outcome == "won" then return "Won (" .. (VIA[row.via] or tostring(row.via)) .. ")" end
 	if row.outcome == "tied" then return "Tied" end
 	if row.outcome == "passed" then return "Passed" end
@@ -73,6 +74,7 @@ end
 
 local function outcomeColor(row)
 	if row.silent then return c.danger end
+	if row.disenchant then return PURPLE end
 	if row.outcome == "won" then return GREEN end
 	if row.outcome == "tied" then return c.gold end
 	return c.muted
@@ -157,6 +159,7 @@ local function paintListRow(row, entry, index)
 		local text
 		if entry.tied then text = "Tie, not decided"
 		elseif #entry.winners > 0 then text = "Winner: " .. table.concat(entry.winners, ", ")
+		elseif #entry.disenchanted > 0 then text = "Disenchanted by " .. table.concat(entry.disenchanted, ", ")
 		else text = "Nobody won it" end
 		if entry.state ~= "accepted" and not entry.tied then text = text .. " (not accepted)" end
 		row.status:SetText(text)
@@ -352,7 +355,7 @@ local function build()
 	end)
 
 	local logo = bar:CreateTexture(nil, "ARTWORK")
-	logo:SetSize(28, 28)
+	logo:SetSize(22, 22)
 	logo:SetPoint("LEFT", bar, "LEFT", PAD, 0)
 	logo:SetTexture(MEDIA .. "Logo\\asr_mark_64")
 	local head = UI.NewText(bar, 15, c.text)
@@ -360,7 +363,7 @@ local function build()
 	head:SetText("SOFT RESERVE RESULTS")
 
 	local close = CreateFrame("Button", nil, bar)
-	close:SetSize(28, 28)
+	close:SetSize(24, 24)
 	close:SetPoint("RIGHT", bar, "RIGHT", -12, 0)
 	close.text = UI.NewText(close, 22, c.muted, "CENTER")
 	close.text:SetPoint("CENTER", 0, 0)

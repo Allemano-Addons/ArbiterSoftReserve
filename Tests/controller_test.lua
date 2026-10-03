@@ -141,6 +141,33 @@ check("an item nobody reserved has no SR part", (function()
 	return Controller:GroupInfo(Controller.session.groups[1]).status == "MS 0 · OS 0 · Pass 0"
 end)())
 
+-- Items handed to the disenchanter after Accept
+Controller:Start({ 29764, 29764, 28830 })
+session = Controller.session
+check("an unknown slot is not marked", Controller:MarkDisenchanted(99, "Bob") == false and Controller:MarkDisenchanted(nil, "Bob") == false)
+session:Answer(1, "Allemano", "PASS")
+session:Resolve(function() return 50 end)
+check("nobody wanted the pauldrons (one passed, the other reserver never answered)", Controller:GroupInfo(session.groups[1]).status == "Nobody wants it")
+check("marking a slot works", Controller:MarkDisenchanted(3, "Bob Moo") == true)
+local deInfo = Controller:GroupInfo(session.groups[2])
+check("a trinket nobody took says who disenchanted it", deInfo.status == "Disenchanted by Bob Moo")
+local deRows = Controller:Rows(session.groups[2])
+local bobRow
+for _, r in ipairs(deRows) do if r.name == "Bob Moo" then bobRow = r end end
+check("the disenchanter gets a row (a Pass) that says so", bobRow ~= nil and bobRow.disenchant == true and bobRow.answer == "PASS")
+check("and the words for it", Controller.OutcomeText(bobRow) == "Disenchanted")
+-- one who answered is marked in their own row
+Controller:Start({ 29764 })
+session = Controller.session
+session:Answer(1, "Erikdbest Moo", "PASS")
+session:Resolve(function() return 50 end)
+Controller:MarkDisenchanted(1, "Erikdbest Moo")
+local own = Controller:Rows(session.groups[1])
+local count = 0
+for _, r in ipairs(own) do if r.name == "Erikdbest Moo" then count = count + 1 end end
+check("a disenchanter who answered is marked, not listed twice", count == 1)
+check("nobody won, so the item row says who disenchanted it", Controller:GroupInfo(session.groups[1]).status == "Disenchanted by Erikdbest Moo")
+
 if failed > 0 then
 	print(failed .. " failed")
 	os.exit(1)

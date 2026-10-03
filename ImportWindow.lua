@@ -9,7 +9,7 @@ local _, ASR = ...
 local ImportWindow = {}
 ASR.ImportWindow = ImportWindow
 
-local WIDTH, HEIGHT, PAD, HEADER_H = 640, 480, 16, 52
+local WIDTH, HEIGHT, PAD, HEADER_H = 640, 480, 16, 40
 local MEDIA = "Interface\\AddOns\\ArbiterSoftReserve\\Media\\"
 local GREEN = { 0.30, 0.75, 0.40, 1 }
 local RED = { 0.85, 0.32, 0.30, 1 }
@@ -86,7 +86,7 @@ local function build()
 	end)
 
 	local logo = bar:CreateTexture(nil, "ARTWORK")
-	logo:SetSize(28, 28)
+	logo:SetSize(22, 22)
 	logo:SetPoint("LEFT", bar, "LEFT", PAD, 0)
 	logo:SetTexture(MEDIA .. "Logo\\asr_mark_64")
 	local title = UI.NewText(bar, 15, c.text)
@@ -94,7 +94,7 @@ local function build()
 	title:SetText("SOFT RESERVE: IMPORT")
 
 	local close = CreateFrame("Button", nil, bar)
-	close:SetSize(28, 28)
+	close:SetSize(24, 24)
 	close:SetPoint("RIGHT", bar, "RIGHT", -12, 0)
 	close.text = UI.NewText(close, 22, c.muted, "CENTER")
 	close.text:SetPoint("CENTER", 0, 0)

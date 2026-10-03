@@ -169,6 +169,34 @@ ALC.AwardDialog = nil
 check("an ALC without the question says so", select(2, Bridge.RequestAwards()):find("too old", 1, true) ~= nil)
 ALC.AwardDialog = dialog
 
+-- Items nobody wanted go to the disenchanter in the same question
+local realUnclaimed = Controller.unclaimed
+Controller.unclaimed = { 7, 9 }
+check("without ALC's disenchant check nothing is offered", #Bridge.DisenchantList() == 0)
+local canDE, deWhy = true, nil
+ALC.Awards = { CanDisenchant = function() return canDE, deWhy end }
+local deList = Bridge.DisenchantList()
+check("the unclaimed items are offered to the disenchanter", #deList == 2 and deList[1].item == 7 and deList[1].disenchant == true and deList[2].item == 9 and deList[1].note == "Nobody wanted it")
+local withDE = Bridge.AwardList()
+check("after the winners in the award list", #withDE == 5 and withDE[3].name ~= nil and withDE[4].disenchant == true and withDE[5].item == 9)
+ASR.db = ASR.db or {}
+ASR.db.disenchant = false
+check("/asr disenchant off leaves them alone", #Bridge.DisenchantList() == 0 and #Bridge.AwardList() == 3)
+ASR.db.disenchant = nil
+canDE, deWhy = false, "No disenchanter is set."
+local noDE, why = Bridge.DisenchantList()
+check("without a disenchanter nothing is offered, and it says why", #noDE == 0 and why == "No disenchanter is set." and #Bridge.AwardList() == 3)
+local told = {}
+local realPrint = ASR.Print
+ASR.Print = function(_, text) told[#told + 1] = text end
+Bridge.RequestAwards()
+check("the loot master is told why they are left alone", #told == 1 and told[1]:find("No disenchanter is set.", 1, true) ~= nil and told[1]:find("2 of the items", 1, true) ~= nil)
+ASR.Print = realPrint
+Controller.unclaimed = {}
+check("nothing unclaimed, nothing offered", #Bridge.DisenchantList() == 0)
+Controller.unclaimed = realUnclaimed
+ALC.Awards = nil
+
 -- A reroll: the last number is the one shown (one copy, two reservers, equal rolls)
 handlers.ALC_SESSION_ENDED(nil, "sid-1")
 handlers.ALC_SESSION_STARTED(nil, { mode = "SR", isLM = true, items = { { itemID = 29764 } }, sid = "sid-2" })
@@ -188,6 +216,18 @@ check("and the reroll decided it", #tieSession.groups[1].result.ties == 0)
 group = tieSession.groups[1]
 handlers.ALC_SESSION_ENDED(nil, "sid-2")
 handlers.ALC_SESSION_STARTED(nil, { mode = "SR", isLM = true, items = { { itemID = 29764 }, { itemID = 29764 }, { itemID = 28830 } }, sid = "sid-1" })
+
+-- Handed to the disenchanter: ASR learns it from ALC's award and publishes the results again
+ALC.Constants = { DISENCHANT_ID = "DISENCHANT" }
+published = {}
+handlers.ALC_COMM_AWARD(nil, "Lm Moo", "sid-1", { item = 2, winner = "Allemano Moo", response = "BIS" })
+check("an ordinary award changes nothing", Controller.session.groups[1].disenchanted == nil and #published == 0)
+handlers.ALC_COMM_AWARD(nil, "Lm Moo", "other-sid", { item = 2, winner = "Allemano Moo", response = "DISENCHANT" })
+check("an award in another session changes nothing", Controller.session.groups[1].disenchanted == nil and #published == 0)
+handlers.ALC_COMM_AWARD(nil, "Lm Moo", "sid-1", { item = 2, winner = "Allemano Moo", response = "DISENCHANT" })
+check("an item handed to the disenchanter is remembered", Controller.session.groups[1].disenchanted and Controller.session.groups[1].disenchanted[1] == "Allemano Moo")
+check("and the results go out again for everybody", #published >= 1 and published[1].state == "accepted")
+ALC.Constants = nil
 
 -- After the answers are closed nothing is read
 lists = { [1] = { { name = "Allemano Moo", response = "MS" } } }

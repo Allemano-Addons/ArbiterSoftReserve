@@ -102,6 +102,15 @@ function Controller:GroupInfo(group)
 	else
 		info.status = "Nobody wants it"
 	end
+	-- handed to the disenchanter after Accept
+	local de = group.disenchanted
+	if de and #de > 0 and not info.tied then
+		if #names > 0 then
+			info.status = "Winner: " .. table.concat(names, ", ") .. " \194\183 Disenchanted: " .. table.concat(de, ", ")
+		else
+			info.status = "Disenchanted by " .. table.concat(de, ", ")
+		end
+	end
 	return info
 end
 
@@ -119,6 +128,7 @@ end
 
 -- The outcome of a row as words.
 function Controller.OutcomeText(row)
+	if row.disenchant then return "Disenchanted" end
 	if row.outcome == "won" then return "Won (" .. (VIA[row.via] or tostring(row.via)) .. ")" end
 	if row.outcome == "tied" then return "Tied" end
 	if row.outcome == "passed" then return "Passed" end
@@ -201,12 +211,41 @@ function Controller:Rows(group)
 				outcome = group.result and "silent" or nil }
 		end
 	end
+	-- The player the item went to for disenchanting is marked in their own row (they may have answered), or gets one.
+	for _, name in ipairs(group.disenchanted or {}) do
+		local found
+		for _, row in ipairs(rows) do
+			if SoftRes.SameCharacter(row.name, name) or SoftRes.SameCharacter(name, row.name) then found = row break end
+		end
+		if found then
+			found.disenchant = true
+		else
+			rows[#rows + 1] = { name = name, answer = "PASS", outcome = "passed", disenchant = true }
+		end
+	end
 	if group.result then
 		for _, row in ipairs(waiting) do rows[#rows + 1] = row end
 		return rows
 	end
 	for _, row in ipairs(rows) do waiting[#waiting + 1] = row end
 	return waiting
+end
+
+-- The loot master's items that nobody wanted were handed to the disenchanter: remember who, for the windows and the
+-- results. Returns true when the slot is one of the session's.
+function Controller:MarkDisenchanted(slot, name)
+	local session = self.session
+	if not session or not slot or not name then return false end
+	for _, group in ipairs(session.groups) do
+		for _, s in ipairs(group.slots) do
+			if s == slot then
+				group.disenchanted = group.disenchanted or {}
+				group.disenchanted[#group.disenchanted + 1] = name
+				return true
+			end
+		end
+	end
+	return false
 end
 
 -- Everybody who reserved the item, once each: { { name, class, answered } }. A reserver has answered when

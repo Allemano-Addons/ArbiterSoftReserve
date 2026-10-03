@@ -16,7 +16,7 @@ local Controller = function() return ASR.SoftRes.Controller end
 -- The window is as tall as its content: one row per item (up to ITEM_ROWS) and per player of the selected item
 -- (from MIN_PLAYER_ROWS up to PLAYER_ROWS); a longer list scrolls.
 local WIDTH, PAD = 780, 16
-local HEADER_H = 52
+local HEADER_H = 40
 local LIST_W, ITEM_H, ITEM_ROWS, ITEM_GAP = 240, 46, 8, 4
 local PLAYER_H, PLAYER_ROWS, MIN_PLAYER_ROWS = 24, 12, 3
 local TOP_H = HEADER_H + 40 -- header and the line under it, where the lists start
@@ -185,7 +185,7 @@ local function paintPlayerRow(row, data)
 	row.roll:SetText(Controller().RollText(data))
 	row.result:SetText(Controller().OutcomeText(data))
 	local rc = c.muted
-	if data.outcome == "won" then rc = GREEN elseif data.outcome == "tied" then rc = c.gold end
+	if data.outcome == "won" then rc = GREEN elseif data.outcome == "tied" then rc = c.gold elseif data.disenchant then rc = PURPLE end
 	row.result:SetTextColor(rc[1], rc[2], rc[3], 1)
 end
 
@@ -555,7 +555,7 @@ local function build()
 	end)
 
 	local logo = bar:CreateTexture(nil, "ARTWORK")
-	logo:SetSize(28, 28)
+	logo:SetSize(22, 22)
 	logo:SetPoint("LEFT", bar, "LEFT", PAD, 0)
 	logo:SetTexture(MEDIA .. "Logo\\asr_mark_64")
 	local title = UI.NewText(bar, 15, c.text)
@@ -563,7 +563,7 @@ local function build()
 	title:SetText("SOFT RESERVE")
 
 	local close = CreateFrame("Button", nil, bar)
-	close:SetSize(28, 28)
+	close:SetSize(24, 24)
 	close:SetPoint("RIGHT", bar, "RIGHT", -12, 0)
 	close.text = UI.NewText(close, 22, c.muted, "CENTER")
 	close.text:SetPoint("CENTER", 0, 0)
@@ -679,9 +679,9 @@ local function build()
 	tradeEmpty:Hide()
 
 	-- the two views, in the header
-	tabButtons.session = UI.NewButton(bar, 80, 28, "Session", function() SessionWindow:SetView("session") end)
+	tabButtons.session = UI.NewButton(bar, 80, 26, "Session", function() SessionWindow:SetView("session") end)
 	tabButtons.session:SetPoint("LEFT", title, "RIGHT", 28, 0)
-	tabButtons.trades = UI.NewButton(bar, 130, 28, "Trade queue", function() SessionWindow:SetView("trades") end)
+	tabButtons.trades = UI.NewButton(bar, 130, 26, "Trade queue", function() SessionWindow:SetView("trades") end)
 	tabButtons.trades:SetPoint("LEFT", tabButtons.session, "RIGHT", 6, 0)
 	if ALC and ALC.Events and ALC.Events.Register then
 		ALC.Events.Register(SessionWindow, "ALC_LOOT_CHANGED", function() SessionWindow:Refresh() end)

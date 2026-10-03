@@ -1,6 +1,6 @@
 # Arbiter Soft Reserve (ASR)
 
-Soft reserve sessions for [Arbiter Loot Council](https://github.com/Allemano-Addons/ArbiterLootCouncil) on WoW Forever. Alpha. Import a softres.it list, run a session where everybody answers, roll once, show every roll to everybody and hand out all the winners. Needs Arbiter Loot Council 0.4.1-beta or newer.
+Soft reserve sessions for [Arbiter Loot Council](https://github.com/Allemano-Addons/ArbiterLootCouncil) on WoW Forever. Beta. Import a softres.it list, run a session where everybody answers, roll once, show every roll to everybody and hand out all the winners. Needs Arbiter Loot Council 0.4.1-beta or newer (0.4.2-beta is best).
 
 The idea: at the end of the raid the loot master collects all the items. Everybody sees all of them and answers MS, OS or Pass. Those who reserved an item (imported from softres.it) roll first; copies left over go to the open MS rolls, then OS. The loot master's addon rolls, every roll is shown to everybody in a result window, a tie is rerolled between the players who tied, and the loot master accepts the result and hands everything out.
 

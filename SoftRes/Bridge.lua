@@ -174,7 +174,7 @@ local function wireRows(rows)
 		else
 			out[#out + 1] = {
 				name = row.name, answer = row.answer, roll = row.roll, rerolls = rerolls,
-				outcome = row.outcome, via = row.via, reserved = row.reserved or nil,
+				outcome = row.outcome, via = row.via, reserved = row.reserved or nil, disenchant = row.disenchant or nil,
 			}
 		end
 	end
@@ -204,8 +204,24 @@ end
 
 local VIA = { SR = "SR", MS = "MS", OS = "OS" }
 
--- The list ALC's AwardMany takes, from what the loot master accepted: { { item = slot, name, note } }. The note
--- says why the player won ("SR, roll 87").
+-- The items nobody wanted, as entries for ALC's "Award all" that hand them to the disenchanter from ALC's settings.
+-- Empty when there are none, when the loot master turned it off (/asr disenchant off) or when ALC cannot do it; in
+-- that last case the second value says why (no disenchanter set, not in the group), so the loot master is told.
+function Bridge.DisenchantList()
+	local list = {}
+	local unclaimed = SoftRes.Controller.unclaimed or {}
+	if #unclaimed == 0 then return list end
+	if ASR.db and ASR.db.disenchant == false then return list end
+	if not (ALC and ALC.Awards and ALC.Awards.CanDisenchant) then return list end
+	local ok, why = ALC.Awards:CanDisenchant()
+	if not ok then return list, why or "ALC cannot hand them to a disenchanter." end
+	for _, slot in ipairs(unclaimed) do list[#list + 1] = { item = slot, disenchant = true, note = "Nobody wanted it" } end
+	return list
+end
+
+-- The list ALC's AwardMany takes, from what the loot master accepted: { { item = slot, name, note } }, then the items
+-- nobody wanted as { item = slot, disenchant = true } (see DisenchantList). The note says why the player won
+-- ("SR, roll 87").
 function Bridge.AwardList()
 	local Controller = SoftRes.Controller
 	local list = {}
@@ -214,6 +230,7 @@ function Bridge.AwardList()
 		if award.roll then note = (note ~= "" and (note .. ", ") or "") .. "roll " .. award.roll end
 		list[#list + 1] = { item = award.slot, name = award.name, note = note }
 	end
+	for _, entry in ipairs(Bridge.DisenchantList()) do list[#list + 1] = entry end
 	return list
 end
 
@@ -221,6 +238,10 @@ end
 -- wanted are left alone. Returns true when the question was shown, or false and a message.
 function Bridge.RequestAwards()
 	local list = Bridge.AwardList()
+	local _, whyNot = Bridge.DisenchantList()
+	if whyNot and ASR.Print then
+		ASR:Print("Nobody wanted " .. #(SoftRes.Controller.unclaimed or {}) .. " of the items, so they are left alone: " .. whyNot)
+	end
 	if #list == 0 then return false, "Nobody won anything, so there is nothing to hand out." end
 	if not (ALC and ALC.AwardDialog and ALC.AwardDialog.AskMany) then
 		return false, "Arbiter Loot Council is too old to hand out all the winners at once."
@@ -241,6 +262,16 @@ function Bridge.Init()
 		Controller.live = alcSession.sid
 		Bridge.Sync()
 		if ASR.SessionWindow then ASR.SessionWindow:Show() end
+	end)
+	-- An item handed to the disenchanter: the session window, the results and the players' windows say so
+	ALC.Events.Register(Bridge, "ALC_COMM_AWARD", function(_, _, sid, p)
+		local Controller = SoftRes.Controller
+		local deId = ALC.Constants and ALC.Constants.DISENCHANT_ID
+		if not (deId and Controller.live and Controller.live == sid and type(p) == "table" and p.response == deId) then return end
+		if Controller:MarkDisenchanted(p.item, p.winner) then
+			Bridge.PublishResults("accepted")
+			if ASR.SessionWindow then ASR.SessionWindow:Refresh() end
+		end
 	end)
 	ALC.Events.Register(Bridge, "ALC_CANDIDATES_CHANGED", function()
 		if SoftRes.Controller.live then

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2-beta
+- **Items nobody wanted go to the disenchanter.** When you accept a result, the "Award all" question now also lists the items nobody wanted (everybody passed or nobody answered) as "Disenchant", handed to the disenchanter you set in Arbiter Loot Council's Settings (Loot master). No disenchanter set, or not in your group: they are left alone and the chat says why. `/asr disenchant off` turns it off.
+- **Who disenchanted it is shown.** The session window, the results (`/asr results`) and everybody's Result window say "Disenchanted by <name>" for those items, with the player's row marked "Disenchanted", instead of "Nobody wants it". Needs Arbiter Loot Council 0.4.2-beta to show it in the players' Result window.
+- **Much less memory for the results history.** The rows of every item are kept as one short text instead of a table per row. A big raid (25 items, 40 players, 15 sessions) took about 4 MB for the history and now takes about 0.5 MB, and the saved file is smaller too. Older saved results are still read.
+- ASR is a beta now, and its releases are tagged beta so the CurseForge app offers them.
+
 ## 0.2.1-alpha
 - **Start SR in the Loot window.** Arbiter Loot Council's Loot window now has **Start LC** and **Start SR** on every item (and **Start all LC** / **Start all SR**), so you pick the kind of session per item. `/asr start` still works. **Needs Arbiter Loot Council 0.4.1-beta or newer.**
 - **`/asr results`: what every session decided.** Pick a session (the last 15 are kept), then look at it **by item** (the winner and every player's answer, roll and result) or **by player** (what one player rolled for and won). It records what every player saw, so it works for everybody with ASR, not only the loot master. `/asr results clear` forgets it.
