@@ -23,11 +23,12 @@ local MEDIA = "Interface\\AddOns\\ArbiterSoftReserve\\Media\\"
 local UNKNOWN_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local frame, UI, c
-local sessionText, byItemButton, byPlayerButton, prevButton, nextButton, emptyText
+local sessionText, byItemButton, byPlayerButton, prevButton, nextButton, emptyText, scopeButton
 local title, sub, firstHead
 local listRows, lineRows = {}, {}
 local listBar, lineBar, listFrame, linesFrame
 local sessionIndex, mode = 1, "item" -- which session (1 = the newest), "item" or "player"
+local scope = "session" -- "session": one session at a time; "raid": a whole raid night (sessions close together) at a time
 local selected, listOffset, lineOffset = 1, 0, 0
 local listVisible, lineVisible = 1, MIN_LINES
 
@@ -89,7 +90,7 @@ end
 
 -- What the window shows now: the chosen session, the list on the left and the lines on the right.
 local function model()
-	local list = History().Sessions()
+	local list = scope == "raid" and History().Raids() or History().Sessions()
 	sessionIndex = math.max(1, math.min(sessionIndex, math.max(1, #list)))
 	local session = list[sessionIndex]
 	if not session then return list, nil, {}, {} end
@@ -275,7 +276,16 @@ function ResultsWindow:Refresh()
 
 	local count = 0
 	for _ in pairs(session.items) do count = count + 1 end
-	sessionText:SetText(string.format("%s  \194\183  %d of %d  \194\183  %d %s", when(session.time), sessionIndex, #sessions, count, count == 1 and "item" or "items"))
+	local itemsText = string.format("%d %s", count, count == 1 and "item" or "items")
+	if scope == "raid" then
+		-- "2026-10-03 20:10-23:35  ·  1 of 3  ·  4 sessions, 12 items"
+		local fmt = date or os.date
+		sessionText:SetText(string.format("%s-%s  \194\183  %d of %d  \194\183  %d %s, %s", fmt("%m-%d %H:%M", session.time or 0), fmt("%H:%M", session.last or session.time),
+			sessionIndex, #sessions, session.sessionCount, session.sessionCount == 1 and "session" or "sessions", itemsText))
+	else
+		sessionText:SetText(string.format("%s  \194\183  %d of %d  \194\183  %s", when(session.time), sessionIndex, #sessions, itemsText))
+	end
+	scopeButton:SetLabel(scope == "raid" and "Per raid night" or "Per session")
 	firstHead:SetText(mode == "player" and "ITEM" or "PLAYER")
 
 	listVisible = math.max(1, math.min(#entries, LIST_ROWS))
@@ -336,6 +346,12 @@ local function restorePosition()
 	else
 		frame:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
 	end
+end
+
+local function setScope()
+	scope = scope == "raid" and "session" or "raid"
+	sessionIndex, selected, listOffset, lineOffset = 1, 1, 0, 0
+	ResultsWindow:Refresh()
 end
 
 local function setMode(newMode)
@@ -404,10 +420,15 @@ local function build()
 	nextButton:SetPoint("LEFT", prevButton, "RIGHT", 6, 0)
 	sessionText = UI.NewText(frame, 13, c.text)
 	sessionText:SetPoint("LEFT", nextButton, "RIGHT", 12, 0)
+	sessionText:SetWordWrap(false)
 	byPlayerButton = UI.NewButton(frame, 96, 28, "By player", function() setMode("player") end)
 	byPlayerButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD, -(HEADER_H + 12))
 	byItemButton = UI.NewButton(frame, 90, 28, "By item", function() setMode("item") end)
 	byItemButton:SetPoint("RIGHT", byPlayerButton, "LEFT", -6, 0)
+	-- one session at a time, or a whole raid night: how many items Allemano won tonight (By player, Per raid night)
+	scopeButton = UI.NewButton(frame, 124, 28, "Per session", setScope)
+	scopeButton:SetPoint("RIGHT", byItemButton, "LEFT", -6, 0)
+	sessionText:SetPoint("RIGHT", scopeButton, "LEFT", -10, 0)
 
 	emptyText = UI.NewText(frame, 13, c.muted)
 	emptyText:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -(TOP_H + 16))

@@ -247,6 +247,85 @@ do
 	handlers.ALC_SESSION_STARTED(nil, { mode = "SR", isLM = true, items = { { itemID = 29764 }, { itemID = 29764 }, { itemID = 28830 } }, sid = "sid-1" })
 end
 
+-- Settings: Soft Reserve's section in ALC's Settings window
+do
+	local section
+	ALC.RegisterSettingsSection = function(def) section = def return true end
+	ASR.db = ASR.db or {}
+	check("the section is registered with ALC", Bridge.RegisterSettings() == true and section.name == "Soft Reserve" and section.color == "9B7BFF")
+	local rows = {}
+	for _, row in ipairs(section.rows) do rows[row.label] = row end
+	local tooltip = rows["Show who reserved an item in its tooltip"]
+	local announce = rows["Say the result in the raid chat when I accept"]
+	local auto = rows["Resolve by itself when the answer time is up"]
+	local de = rows["Hand the items nobody wanted to the disenchanter"]
+	check("it has the options for everybody and for the loot master", tooltip and tooltip.tab == "everyone" and announce and announce.tab == "lm" and auto.tab == "lm" and de.tab == "lm"
+		and rows["Clear saved results"].type == "action" and rows["Clear saved results"].confirm ~= nil)
+	check("the defaults: tooltip and disenchant on, announcement and auto-Resolve off", tooltip.get() == true and de.get() == true and announce.get() == "off" and auto.get() == false)
+	tooltip.set(false); de.set(false); announce.set("winners"); auto.set(true)
+	check("the rows change the saved options", ASR.db.tooltip == false and ASR.db.disenchant == false and ASR.db.announce == "winners" and ASR.db.autoResolve == true)
+	check("and read them back", tooltip.get() == false and de.get() == false and announce.get() == "winners" and auto.get() == true)
+	ASR.db.tooltip, ASR.db.disenchant, ASR.db.announce, ASR.db.autoResolve = nil, nil, nil, nil
+	local realReg = ALC.RegisterSettingsSection
+	ALC.RegisterSettingsSection = nil
+	check("an ALC without sections adds nothing", Bridge.RegisterSettings() == false)
+	ALC.RegisterSettingsSection = realReg
+end
+
+-- The raid chat: what the loot master says when accepting
+do
+	local session = Controller.session
+	Controller.awards = { { slot = 1, name = "Allemano Moo", itemID = 29764, via = "SR", roll = 87 }, { slot = 3, name = "Erikdbest Moo", itemID = 28830, via = "MS", roll = 40 } }
+	Controller.unclaimed = { 2 }
+	local linkOf = function(id) return "[" .. id .. "]" end
+	check("nothing is said when the mode is off or unknown", #Bridge.AnnounceLines("off", linkOf) == 0 and #Bridge.AnnounceLines(nil, linkOf) == 0 and #Bridge.AnnounceLines("all", linkOf) == 0)
+	local winners = Bridge.AnnounceLines("winners", linkOf)
+	check("winners: a line per item won and one for what nobody wanted", #winners == 3 and winners[1] == "[29764]: Allemano Moo wins (SR, roll 87)"
+		and winners[2] == "[28830]: Erikdbest Moo wins (MS, roll 40)" and winners[3] == "[29764]: nobody wanted it")
+	local withNext = Bridge.AnnounceLines("runnerup", linkOf)
+	check("with runner-up each line is the same or longer", #withNext == 3 and withNext[1]:sub(1, #winners[1]) == winners[1] and #withNext[2] >= #winners[2])
+	local said, channels = {}, {}
+	SendChatMessage = function(text, channel) said[#said + 1] = text channels[#channels + 1] = channel end
+	IsInRaid = function() return true end
+	IsInGroup = function() return true end
+	ASR.db = ASR.db or {}
+	check("nothing is sent while it is off", Bridge.AnnounceResult(linkOf) == 0 and #said == 0)
+	ASR.db.announce = "winners"
+	check("the lines go to the raid chat", Bridge.AnnounceResult(linkOf) == 3 and #said >= 1 and channels[1] == "RAID")
+	IsInRaid = function() return false end
+	said = {}
+	Bridge.AnnounceResult(linkOf)
+	check("in a party they go to the party chat", channels[#channels] == "PARTY")
+	IsInGroup = function() return false end
+	said = {}
+	check("alone nothing is sent", Bridge.AnnounceResult(linkOf) == 0 and #said == 0)
+	ASR.db.announce = nil
+	SendChatMessage, IsInRaid, IsInGroup = nil, nil, nil
+	Controller.awards, Controller.unclaimed = nil, nil
+end
+
+-- The answer time ran out: Resolve by itself, when asked for
+do
+	local resolved = 0
+	ASR.SessionWindow.DoResolve = function() resolved = resolved + 1 end
+	ASR.db = ASR.db or {}
+	check("a session in this client is live", Controller.live ~= nil and Controller.session.state == "open")
+	local sid = Controller.live
+	handlers.ALC_SESSION_TIMER_ENDED(nil, { sid = sid })
+	check("nothing happens while auto-Resolve is off", resolved == 0)
+	ASR.db.autoResolve = true
+	handlers.ALC_SESSION_TIMER_ENDED(nil, { sid = "another-session" })
+	check("nor for another session", resolved == 0)
+	handlers.ALC_SESSION_TIMER_ENDED(nil, { sid = sid })
+	check("when the time is up the rolls are made", resolved == 1)
+	local keep = Controller.session.state
+	Controller.session.state = "resolved"
+	handlers.ALC_SESSION_TIMER_ENDED(nil, { sid = sid })
+	check("not again once it is resolved", resolved == 1)
+	Controller.session.state = keep
+	ASR.db.autoResolve = nil
+end
+
 -- Handed to the disenchanter: ASR learns it from ALC's award and publishes the results again
 ALC.Constants = { DISENCHANT_ID = "DISENCHANT" }
 published = {}
@@ -279,11 +358,21 @@ local registered
 ALC.RegisterStartMode = function(def) registered = def return true end
 check("the start button is registered with ALC", Bridge.RegisterStartMode() == true and registered.id == "SR" and registered.label == "SR"
 	and registered.name == "Soft Reserve" and registered.color == "9B7BFF" and type(registered.start) == "function")
+check("the start button tells how many reserved an item", type(registered.info) == "function" and registered.info(29764) == "SR x2" and registered.info(28830) == "SR x1" and registered.info(99999) == nil)
 local before = #started
 local okLinks = registered.start({ "item:29764:0:0:0", "|cff1eff00|Hitem:28830::::::::70:|h[Gruul]|h|r", 4711 })
 check("the items of the Loot window start a soft reserve session", okLinks == true and #started == before + 1
 	and started[#started].list[1] == 29764 and started[#started].list[2] == 28830 and started[#started].list[3] == 4711
 	and started[#started].options.mode == "SR")
+local viewerFn
+ALC.RegisterResultsViewer = function(fn) viewerFn = fn return true end
+check("ASR is what the Results button of the Response window opens", Bridge.RegisterResultsViewer() == true and type(viewerFn) == "function")
+local toggled = 0
+ASR.ResultsWindow = { Toggle = function() toggled = toggled + 1 end }
+viewerFn()
+check("and it toggles the results window", toggled == 1)
+ALC.RegisterResultsViewer = nil
+check("an ALC without the API adds nothing", Bridge.RegisterResultsViewer() == false)
 local entries = {}
 ALC.RegisterLauncherEntry = function(def) entries[#entries + 1] = def return true end
 check("ASR adds its rows to ALC's window menu", Bridge.RegisterLauncherEntries() == true and #entries == 3)

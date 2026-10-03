@@ -481,6 +481,8 @@ local function resolve()
 	SessionWindow:Refresh()
 end
 
+SessionWindow.DoResolve = resolve -- for the auto-Resolve when the answer time is up (see Bridge)
+
 local function reroll()
 	local session = Controller().session
 	for _, group in ipairs(session.groups) do
@@ -511,6 +513,7 @@ local function accept()
 	end
 	for _, line in ipairs(lines) do ASR:Print("  " .. line) end
 	if Controller().live then
+		ASR.SoftRes.Bridge.AnnounceResult(itemNameForChat) -- in the raid chat, if the loot master asked for that
 		local shown, why = ASR.SoftRes.Bridge.RequestAwards()
 		if not shown and why then ASR:Print(why) end
 	end

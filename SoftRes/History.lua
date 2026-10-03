@@ -19,7 +19,7 @@ ASR.SoftRes = SoftRes
 local History = {}
 SoftRes.History = History
 
-History.MAX_SESSIONS = 15
+History.MAX_SESSIONS = 15 -- the most; the player can choose 5, 10 or 15 in the settings
 History.MAX_ROWS = 60
 
 local strlower = string.lower
@@ -124,7 +124,7 @@ function History.Record(sid, item, itemID, state, rows, when, lm)
 		if not rows or #rows == 0 then return false end
 		session = { sid = sid, time = when or time(), lm = lm, items = {} }
 		list[#list + 1] = session
-		while #list > History.MAX_SESSIONS do table.remove(list, 1) end
+		while #list > History.Keep() do table.remove(list, 1) end
 	end
 	if not rows or #rows == 0 then
 		session.items[item] = nil
@@ -141,7 +141,23 @@ function History.Record(sid, item, itemID, state, rows, when, lm)
 			if s == session then table.remove(list, i) break end
 		end
 	end
+	-- an open results window shows it at once
+	if ASR.ResultsWindow and ASR.ResultsWindow.Refresh then ASR.ResultsWindow:Refresh() end
 	return true
+end
+
+-- How many sessions are kept (the choice in the settings: 5, 10 or 15).
+function History.Keep()
+	local n = ASR.db and ASR.db.keepSessions
+	if n == 5 or n == 10 or n == 15 then return n end
+	return History.MAX_SESSIONS
+end
+
+function History.SetKeep(n)
+	ASR.db = ASR.db or {}
+	ASR.db.keepSessions = n
+	local list = sessions()
+	while #list > History.Keep() do table.remove(list, 1) end
 end
 
 -- The sessions, newest first.
@@ -150,6 +166,45 @@ function History.Sessions()
 	local list = sessions()
 	for i = #list, 1, -1 do out[#out + 1] = list[i] end
 	return out
+end
+
+-- The sessions grouped into raids: sessions less than RAID_GAP apart belong to the same raid (a raid night can run past
+-- midnight, so the date is not used). Newest raid first. A raid looks like a session so that ByItem and ByPlayer work on
+-- it as they are: { sid, time (the first session's), last (the last session's), sessionCount, items } with the items of all
+-- its sessions numbered one after the other, oldest first.
+History.RAID_GAP = 4 * 3600
+function History.Raids()
+	local raids, current = {}, nil
+	local previous
+	for _, session in ipairs(sessions()) do -- oldest first
+		if not current or (session.time or 0) - (previous or 0) > History.RAID_GAP then
+			current = { sid = "raid-" .. tostring(session.sid), time = session.time, last = session.time, sessionCount = 0, items = {}, members = {} }
+			raids[#raids + 1] = current
+		end
+		current.sessionCount = current.sessionCount + 1
+		current.last = session.time
+		previous = session.time
+		current.members[#current.members + 1] = session
+	end
+	-- The items of a raid come newest first, so the last thing looted is at the top of the list: the newest session
+	-- first, and inside a session in the order the items were in it.
+	for _, raid in ipairs(raids) do
+		local n = 0
+		for i = #raid.members, 1, -1 do
+			local session = raid.members[i]
+			local numbers = {}
+			for number in pairs(session.items) do numbers[#numbers + 1] = number end
+			table.sort(numbers)
+			for _, number in ipairs(numbers) do
+				n = n + 1
+				raid.items[n] = session.items[number] -- the same item table: nothing is copied
+			end
+		end
+		raid.members = nil
+	end
+	local newestFirst = {}
+	for i = #raids, 1, -1 do newestFirst[#newestFirst + 1] = raids[i] end
+	return newestFirst
 end
 
 function History.Delete(sid)
@@ -163,6 +218,7 @@ end
 function History.Clear()
 	ASR.db = ASR.db or {}
 	ASR.db.history = {}
+	if ASR.ResultsWindow and ASR.ResultsWindow.Refresh then ASR.ResultsWindow:Refresh() end
 end
 
 -- The names of the winners of a list of rows, and whether somebody is still tied.
@@ -205,12 +261,32 @@ end
 -- reserved, silent } } }, the most wins first, then by name. A player is every name once (case does not matter).
 function History.ByPlayer(session)
 	local players, order = {}, {}
-	for _, item in ipairs(History.ByItem(session)) do
+	local items = History.ByItem(session)
+	-- The imported list may know a player by the first name only ("Allemano") while the game says "Allemano Moo": they are
+	-- the same player when exactly one full name starts with that first name.
+	local fullNames, ambiguous = {}, {}
+	for _, item in ipairs(items) do
 		for _, r in ipairs(item.rows) do
-			local key = strlower(r.name)
+			local first = string.match(r.name, "^(%S+)%s+%S")
+			if first then
+				first = strlower(first)
+				if fullNames[first] and strlower(fullNames[first]) ~= strlower(r.name) then ambiguous[first] = true end
+				fullNames[first] = fullNames[first] or r.name
+			end
+		end
+	end
+	local function playerName(name)
+		if string.find(name, "%s") then return name end
+		local first = strlower(name)
+		if fullNames[first] and not ambiguous[first] then return fullNames[first] end
+		return name
+	end
+	for _, item in ipairs(items) do
+		for _, r in ipairs(item.rows) do
+			local key = strlower(playerName(r.name))
 			local p = players[key]
 			if not p then
-				p = { name = r.name, wins = 0, rolled = 0, entries = {}, class = r.class }
+				p = { name = playerName(r.name), wins = 0, rolled = 0, entries = {}, class = r.class }
 				players[key] = p
 				order[#order + 1] = p
 			end

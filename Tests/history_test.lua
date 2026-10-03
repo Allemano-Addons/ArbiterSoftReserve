@@ -137,6 +137,95 @@ check("the clearing of ALC's results is not a result", #History.Sessions() == 1)
 ALC = nil
 check("without ALC there is nothing to listen to", History.Init() == false and History.RecordFromALC(1) == false)
 
+-- Sessions grouped into raid nights: sessions less than four hours apart are one raid
+do
+	History.Clear()
+	local function won(sid, item, name, t) History.Record(sid, item, 100 + item, "accepted", { { name = name, answer = "MS", roll = 50, outcome = "won", via = "MS", class = "DRUID" }, { name = "Other", answer = "MS", roll = 10, outcome = "lost" } }, t) end
+	local day = 86400
+	won("n1-a", 1, "Allemano", 1000); won("n1-a", 2, "Allemano", 1000)
+	won("n1-b", 1, "Bob", 1000 + 3600); won("n1-b", 2, "Allemano", 1000 + 3600)
+	won("n2-a", 1, "Allemano", 1000 + day); won("n2-a", 2, "Cy", 1000 + day)
+	won("n3-a", 1, "Allemano", 1000 + day + 5 * 3600)
+	local raids = History.Raids()
+	check("the sessions are grouped into raids, newest first", #raids == 3 and raids[1].time == 1000 + day + 5 * 3600 and raids[3].time == 1000)
+	check("sessions five hours apart are two raids, one hour apart are one", raids[3].sessionCount == 2 and raids[2].sessionCount == 1 and raids[1].sessionCount == 1)
+	check("a raid knows when it began and when it ended", raids[3].time == 1000 and raids[3].last == 1000 + 3600)
+	local night = raids[3]
+	check("its items are numbered one after the other", (function() local n = 0 for _ in pairs(night.items) do n = n + 1 end return n == 4 and night.items[1] and night.items[4] end)())
+	local items = History.ByItem(night)
+	check("by item lists the items of every session of the night", #items == 4)
+	check("newest first: the last session's items are at the top, each session in its own order",
+		items[1].rows[1].name == "Bob" and items[1].itemID == 101 and items[2].itemID == 102 and items[3].itemID == 101 and items[3].rows[1].name == "Allemano")
+	local players = History.ByPlayer(night)
+	check("by player adds the wins up over the night: Allemano won three of four", players[1].name == "Allemano" and players[1].wins == 3 and #players[1].entries == 3)
+	check("and the class is there", players[1].class == "DRUID")
+	check("one session is one raid", #History.Raids() == 3)
+	History.Clear()
+	check("no history, no raids", #History.Raids() == 0)
+end
+
+-- A player the list knows by first name only is the same player as the full name
+do
+	History.Clear()
+	History.Record("sid-names", 1, 7, "accepted", {
+		{ name = "Allemano Moo", answer = "MS", roll = 50, outcome = "won", via = "MS", class = "DRUID" },
+		{ name = "Erikdbest", answer = "PASS", outcome = "passed", reserved = true, silent = true },
+	}, 1)
+	History.Record("sid-names", 2, 8, "accepted", {
+		{ name = "Allemano", answer = "PASS", outcome = "passed", reserved = true, silent = true },
+		{ name = "Erikdbest Moo", answer = "MS", roll = 5, outcome = "won", via = "MS" },
+	}, 1)
+	local merged = History.ByPlayer(History.Sessions()[1])
+	check("Allemano and Allemano Moo are one player, with the full name", #merged == 2 and merged[1].name ~= merged[2].name)
+	local allemano
+	for _, p in ipairs(merged) do if p.name == "Allemano Moo" then allemano = p end end
+	check("with both of the player's lines", allemano and #allemano.entries == 2 and allemano.wins == 1 and allemano.class == "DRUID")
+	check("and the other one the same way", (function() for _, p in ipairs(merged) do if p.name == "Erikdbest Moo" then return #p.entries == 2 and p.wins == 1 end end end)())
+	-- two full names with the same first name: nothing is guessed
+	History.Record("sid-names", 3, 9, "accepted", {
+		{ name = "Allemano Moo", answer = "MS", roll = 3, outcome = "lost" }, { name = "Allemano Two", answer = "MS", roll = 4, outcome = "won", via = "MS" },
+		{ name = "Allemano", answer = "PASS", outcome = "passed", reserved = true, silent = true },
+	}, 1)
+	local names = {}
+	for _, p in ipairs(History.ByPlayer(History.Sessions()[1])) do names[p.name] = true end
+	check("two characters with that first name: the short name stays on its own", names["Allemano"] and names["Allemano Moo"] and names["Allemano Two"])
+	History.Clear()
+end
+
+-- An open results window is drawn again when something is recorded
+do
+	History.Clear()
+	local refreshed = 0
+	ASR.ResultsWindow = { Refresh = function() refreshed = refreshed + 1 end }
+	History.Record("sid-ref", 1, 1, "accepted", { { name = "P", answer = "MS", roll = 5, outcome = "won", via = "MS" } }, 1)
+	check("recording a result refreshes the results window", refreshed == 1)
+	History.Record("sid-ref", 1, 1, "accepted", {}, 1)
+	check("so does taking one back", refreshed == 2)
+	History.Record(nil, 1, 1, "accepted", {})
+	check("a record that is refused does not", refreshed == 2)
+	History.Clear()
+	check("and clearing", refreshed == 3)
+	ASR.ResultsWindow = nil
+end
+
+-- How many sessions are kept is the player's choice (5, 10 or 15)
+do
+	History.Clear()
+	ASR.db.keepSessions = nil
+	check("fifteen sessions are kept unless the player chose less", History.Keep() == 15)
+	ASR.db.keepSessions = 7
+	check("a value that is not one of the choices counts as none", History.Keep() == 15)
+	for i = 1, 12 do History.Record("sid-k" .. i, 1, 1, "accepted", { { name = "P", answer = "MS", roll = i, outcome = "won", via = "MS" } }, 100 + i) end
+	check("twelve sessions are all kept at 15", #History.Sessions() == 12)
+	History.SetKeep(5)
+	check("choosing 5 cuts the history at once, the oldest first", #History.Sessions() == 5 and History.Sessions()[1].sid == "sid-k12" and History.Sessions()[5].sid == "sid-k8" and History.Keep() == 5)
+	History.Record("sid-k13", 1, 1, "accepted", { { name = "P", answer = "MS", roll = 1, outcome = "won", via = "MS" } }, 200)
+	check("and a new session pushes the oldest out", #History.Sessions() == 5 and History.Sessions()[1].sid == "sid-k13" and History.Sessions()[5].sid == "sid-k9")
+	History.SetKeep(15)
+	History.Clear()
+	ASR.db.keepSessions = nil
+end
+
 if failed > 0 then
 	print(failed .. " failed")
 	os.exit(1)

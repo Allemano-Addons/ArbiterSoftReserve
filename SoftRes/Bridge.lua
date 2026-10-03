@@ -82,13 +82,34 @@ function Bridge.StartFromLinks(links)
 	return Bridge.Start(ids)
 end
 
+-- "SR x3" for an item three players reserved; nil when nobody did (each character counted once).
+function Bridge.ReserverText(itemID)
+	local seen, count = {}, 0
+	for _, reserver in ipairs(SoftRes:GetReservers(itemID)) do
+		local key = string.lower(reserver.name or "")
+		if key ~= "" and not seen[key] then
+			seen[key] = true
+			count = count + 1
+		end
+	end
+	if count > 0 then return "SR x" .. count end
+end
+
 -- Adds that button to ALC's Loot window (ALC API 5). Returns true, or false and why not.
 function Bridge.RegisterStartMode()
 	if not (ALC and ALC.RegisterStartMode and Bridge.Available()) then return false, "ALC cannot add a start button." end
 	return ALC.RegisterStartMode({
 		id = Bridge.MODE, label = "SR", name = Bridge.NAME, color = Bridge.COLOR,
 		start = Bridge.StartFromLinks,
+		-- on the item's line in ALC's Loot window: how many reserved it ("SR x3"), and Start SR gets an amber frame
+		info = Bridge.ReserverText,
 	})
+end
+
+-- The Results button of ALC's Loot Response window opens ASR's results (the last sessions), not just the running session.
+function Bridge.RegisterResultsViewer()
+	if not (ALC and ALC.RegisterResultsViewer and Bridge.Available()) then return false end
+	return ALC.RegisterResultsViewer(function() ASR.ResultsWindow:Toggle() end)
 end
 
 -- Adds ASR's rows to ALC's window menu (the minimap button), under a "Soft Reserve" heading: Results for everybody,
@@ -250,6 +271,87 @@ function Bridge.RequestAwards()
 	return ALC.AwardDialog:AskMany(list)
 end
 
+-- The lines for the raid chat when the loot master accepts: one per item that was won, and one per item nobody wanted.
+-- `mode` is "winners" or "runnerup" (the winner of an item with the next best roll).
+function Bridge.AnnounceLines(mode, nameOf)
+	local Controller = SoftRes.Controller
+	local session = Controller.session
+	local lines = {}
+	if not session or (mode ~= "winners" and mode ~= "runnerup") then return lines end
+	nameOf = nameOf or tostring
+	local nextSeen = {}
+	for _, award in ipairs(Controller.awards or {}) do
+		local text = nameOf(award.itemID) .. ": " .. award.name .. " wins (" .. (VIA[award.via] or "?")
+			.. (award.roll and (", roll " .. award.roll) or "") .. ")"
+		local group = session.slotGroup[award.slot]
+		if mode == "runnerup" and group and not nextSeen[group] then
+			nextSeen[group] = true
+			for _, row in ipairs(Controller:Rows(group)) do
+				if row.outcome == "lost" and row.roll then
+					text = text .. ". Next: " .. row.name .. " " .. tostring(row.rerolls and #row.rerolls > 0 and row.rerolls[#row.rerolls] or row.roll)
+					break
+				end
+			end
+		end
+		lines[#lines + 1] = text
+	end
+	for _, slot in ipairs(Controller.unclaimed or {}) do
+		local group = session.slotGroup[slot]
+		if group then lines[#lines + 1] = nameOf(group.itemID) .. ": nobody wanted it" end
+	end
+	return lines
+end
+
+-- Says the result in the raid (or party) chat, when the loot master chose to in the settings (/asr and ALC's Settings).
+-- The lines go out half a second apart. Returns how many lines were sent.
+function Bridge.AnnounceResult(nameOf)
+	local mode = ASR.db and ASR.db.announce
+	if mode ~= "winners" and mode ~= "runnerup" then return 0 end
+	local lines = Bridge.AnnounceLines(mode, nameOf)
+	if #lines == 0 or not SendChatMessage then return 0 end
+	local channel = (IsInRaid and IsInRaid()) and "RAID" or ((IsInGroup and IsInGroup()) and "PARTY") or nil
+	if not channel then return 0 end
+	for i, text in ipairs(lines) do
+		local function send() SendChatMessage(text, channel) end
+		if i > 1 and C_Timer and C_Timer.After then C_Timer.After((i - 1) * 0.5, send) else send() end
+	end
+	return #lines
+end
+
+-- Soft Reserve's section in ALC's Settings window (ALC API 5: RegisterSettingsSection). Returns true, or false and why not.
+function Bridge.RegisterSettings()
+	if not (ALC and ALC.RegisterSettingsSection and Bridge.Available()) then return false, "ALC has no settings sections to add to." end
+	local function db()
+		ASR.db = ASR.db or {}
+		return ASR.db
+	end
+	return ALC.RegisterSettingsSection({
+		id = "ArbiterSoftReserve", name = Bridge.NAME, color = Bridge.COLOR,
+		rows = {
+			{ tab = "everyone", type = "check", label = "Show who reserved an item in its tooltip",
+				tip = "A line \"Soft reserved by: ...\" with the names in their class colours.",
+				get = function() return db().tooltip ~= false end, set = function(on) db().tooltip = on and true or false end },
+			{ tab = "everyone", type = "choice", label = "Results kept (open them with /asr results)",
+				options = { { label = "Last 5", value = 5 }, { label = "Last 10", value = 10 }, { label = "Last 15", value = 15 } },
+				get = function() return SoftRes.History.Keep() end, set = function(value) SoftRes.History.SetKeep(value) end },
+			{ tab = "everyone", type = "action", label = "Clear saved results", confirm = "Click again to clear",
+				onClick = function()
+					SoftRes.History.Clear()
+					if ASR.ResultsWindow then ASR.ResultsWindow:Refresh() end
+				end },
+			{ tab = "lm", type = "check", label = "Hand the items nobody wanted to the disenchanter",
+				tip = "When you accept a result, those items are offered to the disenchanter set below in the same question as the winners.",
+				get = function() return db().disenchant ~= false end, set = function(on) db().disenchant = on and true or false end },
+			{ tab = "lm", type = "choice", label = "Say the result in the raid chat when I accept",
+				options = { { label = "Off", value = "off" }, { label = "Winners", value = "winners" }, { label = "With runner-up", value = "runnerup" } },
+				get = function() return db().announce or "off" end, set = function(value) db().announce = value end },
+			{ tab = "lm", type = "check", label = "Resolve by itself when the answer time is up",
+				tip = "A few seconds after the timer runs out, the rolls are made. Off: you press Resolve.",
+				get = function() return db().autoResolve == true end, set = function(on) db().autoResolve = on and true or false end },
+		},
+	})
+end
+
 -- ALC's events: a soft reserve session that starts makes the ASR session; answers are read as they come.
 -- Only the loot master runs the ASR session.
 function Bridge.Init()
@@ -277,6 +379,21 @@ function Bridge.Init()
 			Bridge.PublishResults("accepted")
 			if ASR.SessionWindow then ASR.SessionWindow:Refresh() end
 		end
+	end)
+	-- The answer time ran out: Resolve by itself, when the loot master asked for that
+	ALC.Events.Register(Bridge, "ALC_SESSION_TIMER_ENDED", function(_, alcSession)
+		local Controller = SoftRes.Controller
+		if not (ASR.db and ASR.db.autoResolve) or not (alcSession and Controller.live and Controller.live == alcSession.sid) then return end
+		local sid = alcSession.sid
+		local function go()
+			if Controller.live == sid and Controller.session and Controller.session.state == "open"
+				and ASR.SessionWindow and ASR.SessionWindow.DoResolve then
+				if ASR.Print then ASR:Print("The time is up: resolving.") end
+				ASR.SessionWindow.DoResolve()
+			end
+		end
+		-- a moment for the last answers (ALC still takes those sent just before the timer ended)
+		if C_Timer and C_Timer.After then C_Timer.After(3.5, go) else go() end
 	end)
 	ALC.Events.Register(Bridge, "ALC_CANDIDATES_CHANGED", function()
 		if SoftRes.Controller.live then

@@ -28,6 +28,8 @@ frame:SetScript("OnEvent", function(_, event, name)
 		pcall(ASR.SoftRes.Bridge.Init)
 		pcall(ASR.SoftRes.Bridge.RegisterStartMode)
 		pcall(ASR.SoftRes.Bridge.RegisterLauncherEntries)
+		pcall(ASR.SoftRes.Bridge.RegisterSettings)
+		pcall(ASR.SoftRes.Bridge.RegisterResultsViewer)
 		pcall(ASR.SoftRes.History.Init)
 	end
 end)
