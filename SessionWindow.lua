@@ -301,6 +301,20 @@ function SessionWindow:UpdateTimer()
 	local C = Controller()
 	local session = C.session
 	local Sessions = ALC and ALC.Sessions
+	-- After Accept the session in Arbiter Loot Council still runs: until the winners are awarded, and then for a
+	-- while so that an award can be undone. Say which, so it is clear that the session is not over yet.
+	if session and C.live and session.state == "accepted" and Sessions and Sessions.GetFinishLeft then
+		local finish = Sessions:GetFinishLeft()
+		if finish then
+			finish = math.ceil(finish)
+			timerText:SetTextColor(GREEN[1], GREEN[2], GREEN[3], 1)
+			timerText:SetText(string.format("All awarded: the session closes in %d:%02d", math.floor(finish / 60), finish % 60))
+		else
+			timerText:SetTextColor(c.gold[1], c.gold[2], c.gold[3], 1)
+			timerText:SetText("Accepted: not awarded yet")
+		end
+		return
+	end
 	if not (session and C.live and session.state == "open" and Sessions and Sessions.GetTimeLeft) then
 		timerText:SetText("")
 		return
@@ -389,8 +403,12 @@ function SessionWindow:Refresh()
 
 	-- the buttons for a session that runs in ALC
 	local live = C.live ~= nil
-	buttons.pause:SetShown(live)
+	local Sessions = ALC and ALC.Sessions
+	-- every item awarded: the session only waits for the undo time to run out
+	local finishing = live and session.state == "accepted" and Sessions and Sessions.GetFinishLeft and Sessions:GetFinishLeft() ~= nil
+	buttons.pause:SetShown(live and not finishing)
 	buttons.stop:SetShown(live)
+	buttons.stop:SetLabel(finishing and "Close session" or "Stop session")
 	if live then
 		local paused = ALC.Sessions and ALC.Sessions.IsPaused and ALC.Sessions:IsPaused()
 		buttons.pause:SetLabel(paused and "Resume" or "Pause")
@@ -400,7 +418,15 @@ function SessionWindow:Refresh()
 	local can = C:Can()
 	buttons.resolve:SetAvailable(can.resolve)
 	buttons.reroll:SetAvailable(can.reroll)
-	buttons.accept:SetAvailable(can.accept)
+	if live and session.state == "accepted" then
+		-- accepted but the winners are not all awarded yet (the question was closed, say): ask again from here
+		local open = Sessions and Sessions.GetSummary and Sessions:GetSummary().open or 0
+		buttons.accept:SetLabel("Award all")
+		buttons.accept:SetAvailable(open > 0 and not finishing)
+	else
+		buttons.accept:SetLabel("Accept result")
+		buttons.accept:SetAvailable(can.accept)
+	end
 	buttons.reopen:SetAvailable(can.reopen)
 end
 
@@ -418,6 +444,7 @@ end
 
 local function resolve()
 	local waiting = Controller().session:Resolve()
+	Controller():Save() -- the rolls must survive a /reload at once
 	shareResult("resolved")
 	if waiting and waiting > 0 then
 		ASR:Print(waiting .. (waiting == 1 and " item is" or " items are") .. " tied. Press Reroll ties.")
@@ -430,11 +457,18 @@ local function reroll()
 	for _, group in ipairs(session.groups) do
 		if group.result and #group.result.ties > 0 then session:Reroll(group.slots[1]) end
 	end
+	Controller():Save() -- the rolls must survive a /reload at once
 	shareResult("resolved")
 	SessionWindow:Refresh()
 end
 
 local function accept()
+	if Controller().session.state == "accepted" then
+		-- already accepted: this button is "Award all" now
+		local shown, why = ASR.SoftRes.Bridge.RequestAwards()
+		if not shown and why then ASR:Print(why) end
+		return
+	end
 	local lines, message = Controller():Accept(itemNameForChat)
 	if not lines then
 		ASR:Print(message or "Could not accept.")
@@ -467,6 +501,7 @@ end
 
 local function reopen()
 	Controller().session:Reopen()
+	Controller():Save() -- the rolls must survive a /reload at once
 	shareResult("resolved")
 	SessionWindow:Refresh()
 end

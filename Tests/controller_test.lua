@@ -168,6 +168,39 @@ for _, r in ipairs(own) do if r.name == "Erikdbest Moo" then count = count + 1 e
 check("a disenchanter who answered is marked, not listed twice", count == 1)
 check("nobody won, so the item row says who disenchanted it", Controller:GroupInfo(session.groups[1]).status == "Disenchanted by Erikdbest Moo")
 
+-- Saved in ASR_DB and taken back
+do
+	ASR.db = {}
+	Controller:Start({ 29764, 28830 })
+	Controller.live = "sid-9"
+	local s = Controller.session
+	s:Answer(1, "Allemano Moo", "MS"); s:Answer(1, "Erikdbest Moo", "OS"); s:Answer(2, "Erikdbest Moo", "MS")
+	local roll = 40
+	s:Resolve(function() roll = roll + 1 return roll end) -- every player rolls a different number: no tie
+	check("the session can be accepted", Controller:Accept(tostring) ~= nil)
+	Controller:MarkDisenchanted(1, "Bob Moo")
+	Controller:Save()
+	check("a live session is saved in the database", ASR.db.saved ~= nil and ASR.db.saved.sid == "sid-9" and ASR.db.saved.session.state == "accepted")
+	-- the reload: everything in memory is gone
+	Controller.session, Controller.live, Controller.awards, Controller.unclaimed = nil, nil, nil, nil
+	check("another session id does not take it back", Controller:Restore("other") == false and Controller.session == nil)
+	check("the same session id takes it back", Controller:Restore("sid-9") == true and Controller.live == "sid-9" and Controller.session.state == "accepted")
+	check("with the rolls and the winners", Controller.session.groups[1].entries["allemano moo"].roll ~= nil and #Controller.session.groups[1].result.winners == 1)
+	check("the accepted awards", Controller.awards ~= nil and #Controller.awards >= 1 and Controller.unclaimed ~= nil)
+	check("and who disenchanted what", Controller.session.groups[1].disenchanted and Controller.session.groups[1].disenchanted[1] == "Bob Moo")
+	check("the window knows it is accepted", Controller:State() == "accepted" and Controller:Can().accept == false)
+	-- a test session (not in ALC) is not saved
+	Controller:Start({ 29764 })
+	Controller:Save()
+	check("a session that is not in Arbiter Loot Council is not kept", ASR.db.saved == nil)
+	Controller.live = "sid-9"
+	Controller:Save()
+	Controller:ForgetSaved()
+	check("it is forgotten when the session ends", ASR.db.saved == nil)
+	check("nothing saved, nothing to take back", Controller:Restore("sid-9") == false)
+	Controller.live = nil
+end
+
 if failed > 0 then
 	print(failed .. " failed")
 	os.exit(1)

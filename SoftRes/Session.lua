@@ -142,6 +142,55 @@ function Session:Reopen()
 	return true
 end
 
+-- Everything the loot master would lose in a /reload, as plain data for ASR_DB: the state, the item of every slot and,
+-- for every item, the answers, rolls and rerolls as one short text (one line per player, fields split by tabs). The
+-- result of an item is not kept: Restore works it out again from the answers and rolls with the same rules.
+function Session:Snapshot()
+	local items = {}
+	for slot, group in pairs(self.slotGroup) do items[slot] = group.itemID end
+	local groups = {}
+	for _, group in ipairs(self.groups) do
+		local lines = {}
+		for _, key in ipairs(group.order) do
+			local e = group.entries[key]
+			lines[#lines + 1] = table.concat({
+				e.name, e.answer or "", e.roll and tostring(e.roll) or "", (e.rerolls and #e.rerolls > 0) and table.concat(e.rerolls, ",") or "",
+			}, "\t")
+		end
+		groups[#groups + 1] = { itemID = group.itemID, packed = table.concat(lines, "\n"), resolved = group.result ~= nil }
+	end
+	return { state = self.state, items = items, groups = groups }
+end
+
+-- A session from a snapshot. A bad snapshot gives nil.
+function Session.Restore(snapshot, isReserver)
+	if type(snapshot) ~= "table" or type(snapshot.items) ~= "table" or #snapshot.items == 0 or type(snapshot.groups) ~= "table" then return nil end
+	local items = {}
+	for slot, itemID in ipairs(snapshot.items) do items[slot] = { itemID = itemID } end
+	local self = Session.New(items, isReserver)
+	self.state = (snapshot.state == "resolved" or snapshot.state == "accepted") and snapshot.state or "open"
+	for _, saved in ipairs(snapshot.groups) do
+		local group = self.byItem[saved.itemID]
+		if group and type(saved.packed) == "string" then
+			for line in (saved.packed .. "\n"):gmatch("(.-)\n") do
+				local name, answer, roll, rerolls = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t?(.*)$")
+				if name and name ~= "" and VALID[answer] then
+					local key = strlower(name)
+					local entry = { name = name, answer = answer, roll = tonumber(roll) }
+					if rerolls and rerolls ~= "" then
+						entry.rerolls = {}
+						for n in rerolls:gmatch("[^,]+") do entry.rerolls[#entry.rerolls + 1] = tonumber(n) end
+					end
+					group.entries[key] = entry
+					group.order[#group.order + 1] = key
+				end
+			end
+			if saved.resolved then resolveGroup(self, group) end
+		end
+	end
+	return self
+end
+
 -- Every roll of an item, for the result window that everybody sees: winners first, then those who lost,
 -- then those who passed. Each row: { name, answer, roll, rerolls, reserved, outcome = "won" | "tied" | "lost" | "passed", via }.
 function Session:Rows(slot)

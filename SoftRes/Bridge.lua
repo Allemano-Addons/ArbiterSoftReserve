@@ -127,6 +127,7 @@ function Bridge.Sync()
 			end
 		end
 	end
+	if count > 0 then Controller:MarkDirty() end
 	return count
 end
 
@@ -258,9 +259,13 @@ function Bridge.Init()
 		local ids = {}
 		for slot, item in ipairs(alcSession.items) do ids[slot] = item.itemID end
 		local Controller = SoftRes.Controller
-		Controller:Start(ids)
-		Controller.live = alcSession.sid
+		-- ALC restored its session after a /reload: take ASR's side back too (the rolls are only here)
+		if not (alcSession.restored and Controller:Restore(alcSession.sid)) then
+			Controller:Start(ids)
+			Controller.live = alcSession.sid
+		end
 		Bridge.Sync()
+		Controller:MarkDirty()
 		if ASR.SessionWindow then ASR.SessionWindow:Show() end
 	end)
 	-- An item handed to the disenchanter: the session window, the results and the players' windows say so
@@ -285,6 +290,7 @@ function Bridge.Init()
 	ALC.Events.Register(Bridge, "ALC_SESSION_ENDED", function(_, sid)
 		local Controller = SoftRes.Controller
 		if Controller.live == sid then
+			Controller:ForgetSaved()
 			Controller.live = nil
 			Controller.wasLive = true -- the window says the session has ended, not that it was a test
 			if ASR.SessionWindow then ASR.SessionWindow:Refresh() end

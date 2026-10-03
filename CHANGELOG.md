@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3-beta
+- **It is clear when the session is still running after Accept.** The header says "Accepted: not awarded yet" until the winners are awarded and then "All awarded: the session closes in 1:23" (it stays for 90 seconds so that an award can be undone). Pause goes away when there is nothing left to pause, Stop session becomes "Close session", and the Accept button becomes **Award all**, so the question can be asked again if it was closed.
+- **A /reload no longer loses the rolls.** Arbiter Loot Council brought its session back after a reload, but ASR's side (the rolls, the tie, the result, the accepted awards and who disenchanted what) was only in memory, so the window went back to "waiting for answers" and Resolve rolled again. ASR now keeps the session in its saved data while it runs in Arbiter Loot Council (rolls and Accept are saved at once, the rest a second after a change) and takes it back when the loot master's session is restored. It is forgotten when the session ends.
+
 ## 0.2.2-beta
 - **Items nobody wanted go to the disenchanter.** When you accept a result, the "Award all" question now also lists the items nobody wanted (everybody passed or nobody answered) as "Disenchant", handed to the disenchanter you set in Arbiter Loot Council's Settings (Loot master). No disenchanter set, or not in your group: they are left alone and the chat says why. `/asr disenchant off` turns it off.
 - **Who disenchanted it is shown.** The session window, the results (`/asr results`) and everybody's Result window say "Disenchanted by <name>" for those items, with the player's row marked "Disenchanted", instead of "Nobody wants it". Needs Arbiter Loot Council 0.4.2-beta to show it in the players' Result window.

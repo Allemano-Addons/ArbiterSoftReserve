@@ -174,6 +174,7 @@ function Controller:Accept(nameOf)
 	if not session then return nil, "There is no session." end
 	local awards, unclaimed = session:Accept()
 	self.awards, self.unclaimed = awards, unclaimed -- for the loot master's "Award all" (see Bridge)
+	self:Save()
 	if not awards then return nil, unclaimed end
 	local slots = {}
 	for _, group in ipairs(session.groups) do
@@ -231,6 +232,59 @@ function Controller:Rows(group)
 	return waiting
 end
 
+-- ---------------------------------------------------------------------------
+-- Surviving a /reload: a session that runs in Arbiter Loot Council is kept in ASR_DB (answers, rolls, the state, the
+-- accepted awards and who disenchanted what), and taken back when ALC restores the same session.
+-- ---------------------------------------------------------------------------
+function Controller:Save()
+	ASR.db = ASR.db or {}
+	if not (self.live and self.session) then ASR.db.saved = nil return end
+	local disenchanted = {}
+	for _, group in ipairs(self.session.groups) do
+		if group.disenchanted and #group.disenchanted > 0 then
+			disenchanted[#disenchanted + 1] = { itemID = group.itemID, names = group.disenchanted }
+		end
+	end
+	ASR.db.saved = {
+		sid = self.live, savedAt = time(), session = self.session:Snapshot(),
+		awards = self.awards, unclaimed = self.unclaimed, disenchanted = disenchanted,
+	}
+end
+
+-- Saves in a moment (many changes come at once); at once where there is no timer.
+function Controller:MarkDirty()
+	if not (self.live and self.session) then return end
+	if C_Timer and C_Timer.After then
+		if self.saving then return end
+		self.saving = true
+		C_Timer.After(1, function()
+			self.saving = nil
+			self:Save()
+		end)
+	else
+		self:Save()
+	end
+end
+
+-- Takes back the saved session when it is the one ALC runs (the same session id). Returns true when it did.
+function Controller:Restore(sid)
+	local saved = ASR.db and ASR.db.saved
+	if not (saved and sid and saved.sid == sid) then return false end
+	local session = SoftRes.Session.Restore(saved.session)
+	if not session then return false end
+	self.session, self.live, self.wasLive = session, sid, nil
+	self.awards, self.unclaimed = saved.awards, saved.unclaimed
+	for _, item in ipairs(saved.disenchanted or {}) do
+		local group = session.byItem[item.itemID]
+		if group then group.disenchanted = item.names end
+	end
+	return true
+end
+
+function Controller:ForgetSaved()
+	if ASR.db then ASR.db.saved = nil end
+end
+
 -- The loot master's items that nobody wanted were handed to the disenchanter: remember who, for the windows and the
 -- results. Returns true when the slot is one of the session's.
 function Controller:MarkDisenchanted(slot, name)
@@ -241,6 +295,7 @@ function Controller:MarkDisenchanted(slot, name)
 			if s == slot then
 				group.disenchanted = group.disenchanted or {}
 				group.disenchanted[#group.disenchanted + 1] = name
+				self:MarkDirty()
 				return true
 			end
 		end

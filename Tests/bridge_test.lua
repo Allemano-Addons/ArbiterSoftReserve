@@ -217,6 +217,36 @@ group = tieSession.groups[1]
 handlers.ALC_SESSION_ENDED(nil, "sid-2")
 handlers.ALC_SESSION_STARTED(nil, { mode = "SR", isLM = true, items = { { itemID = 29764 }, { itemID = 29764 }, { itemID = 28830 } }, sid = "sid-1" })
 
+-- A /reload: ALC restores its session and ASR takes its side back, with the rolls
+do
+	ASR.db = ASR.db or {}
+	Controller.session:Resolve(function() return 61 end)
+	Controller:Save()
+	local savedRolls = {}
+	for _, group in ipairs(Controller.session.groups) do
+		for _, key in ipairs(group.order) do savedRolls[group.itemID .. key] = group.entries[key].roll end
+	end
+	-- the reload empties ASR's memory; ALC brings its session back flagged as restored
+	handlers.ALC_SESSION_ENDED(nil, "x")
+	Controller.session, Controller.live = nil, nil
+	ASR.db.saved = ASR.db.saved
+	handlers.ALC_SESSION_STARTED(nil, { mode = "SR", isLM = true, restored = true, items = { { itemID = 29764 }, { itemID = 29764 }, { itemID = 28830 } }, sid = "sid-1" })
+	check("a restored session gets ASR's side back", Controller.live == "sid-1" and Controller.session ~= nil and Controller.session.state == "resolved")
+	local same = true
+	for _, group in ipairs(Controller.session.groups) do
+		for _, key in ipairs(group.order) do
+			if group.entries[key].roll ~= savedRolls[group.itemID .. key] then same = false end
+		end
+	end
+	check("with the same rolls as before the reload", same and next(savedRolls) ~= nil)
+	-- a restore for another session starts a fresh one
+	Controller.session, Controller.live = nil, nil
+	handlers.ALC_SESSION_STARTED(nil, { mode = "SR", isLM = true, restored = true, items = { { itemID = 29764 } }, sid = "different-sid" })
+	check("a session ALC restored that ASR did not save starts fresh", Controller.live == "different-sid" and Controller.session.state == "open")
+	Controller.session, Controller.live = nil, nil
+	handlers.ALC_SESSION_STARTED(nil, { mode = "SR", isLM = true, items = { { itemID = 29764 }, { itemID = 29764 }, { itemID = 28830 } }, sid = "sid-1" })
+end
+
 -- Handed to the disenchanter: ASR learns it from ALC's award and publishes the results again
 ALC.Constants = { DISENCHANT_ID = "DISENCHANT" }
 published = {}

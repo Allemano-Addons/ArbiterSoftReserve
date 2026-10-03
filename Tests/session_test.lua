@@ -142,6 +142,54 @@ rolls(10, 99)
 custom:Resolve(fake)
 check("a different way to tell who reserved works", custom:Accept()[1].name == "Special")
 
+-- A snapshot brings the session back after a /reload: the same answers, rolls, ties and winners
+do
+	local rng = { 50, 50, 80, 10, 40, 77 }
+	local function nextRoll() return table.remove(rng, 1) or 33 end
+	local s = Session.New({ { itemID = 100 }, { itemID = 100 }, { itemID = 200 } }, function(name, itemID) return name == "Ann" and itemID == 100 end)
+	s:Answer(1, "Ann", "MS"); s:Answer(1, "Bob Moo", "MS"); s:Answer(1, "Cy", "OS"); s:Answer(3, "Bob Moo", "MS"); s:Answer(3, "Dee", "PASS")
+	s:Resolve(nextRoll)
+	local snap = s:Snapshot()
+	check("a snapshot is plain data", type(snap) == "table" and snap.state == "resolved" and #snap.items == 3 and #snap.groups == 2 and snap.groups[1].resolved == true)
+	local back = Session.Restore(snap, function(name, itemID) return name == "Ann" and itemID == 100 end)
+	check("the restored session is in the same state", back ~= nil and back.state == "resolved" and #back.groups == 2)
+	local function summary(sess)
+		local out = {}
+		for _, group in ipairs(sess.groups) do
+			for _, key in ipairs(group.order) do
+				local e = group.entries[key]
+				out[#out + 1] = table.concat({ group.itemID, e.name, e.answer, tostring(e.roll), e.rerolls and table.concat(e.rerolls, "/") or "-" }, ":")
+			end
+			local names = {}
+			for _, w in ipairs(group.result.winners) do names[#names + 1] = w.name .. "=" .. tostring(w.roll) end
+			out[#out + 1] = "W " .. table.concat(names, ",")
+			out[#out + 1] = "T " .. #group.result.ties
+		end
+		return table.concat(out, "|")
+	end
+	check("with the same answers, rolls, winners and ties", summary(back) == summary(s))
+	check("and the same rows for the windows", #back:Rows(1) == #s:Rows(1) and back:Rows(1)[1].name == s:Rows(1)[1].name and back:Rows(1)[1].roll == s:Rows(1)[1].roll)
+	-- a tie and its reroll survive too
+	local t = Session.New({ { itemID = 300 } }, function() return false end)
+	t:Answer(1, "Ann", "MS"); t:Answer(1, "Bob", "MS")
+	t:Resolve(function() return 50 end)
+	check("two equal rolls tie", #t.groups[1].result.ties == 1)
+	local tBack = Session.Restore(t:Snapshot(), function() return false end)
+	check("the tie is still a tie after the reload", #tBack.groups[1].result.ties == 1 and not tBack:IsDecided())
+	local q = { 10, 90 }
+	t:Reroll(1, function() return table.remove(q, 1) end)
+	local rBack = Session.Restore(t:Snapshot(), function() return false end)
+	check("the reroll survives and decided it", rBack:IsDecided() and rBack.groups[1].entries["bob"].rerolls[1] == 90 and rBack.groups[1].result.winners[1].name == "Bob")
+	-- an open session keeps its answers and can go on
+	local o = Session.New({ { itemID = 400 } }, function() return false end)
+	o:Answer(1, "Ann", "OS")
+	local oBack = Session.Restore(o:Snapshot(), function() return false end)
+	check("an open session keeps the answers and stays open", oBack.state == "open" and oBack.groups[1].entries["ann"].answer == "OS" and oBack.groups[1].result == nil)
+	check("and still takes answers", oBack:Answer(1, "Bob", "MS") == true)
+	check("a bad snapshot gives nothing", Session.Restore(nil) == nil and Session.Restore({}) == nil and Session.Restore({ items = {}, groups = {} }) == nil)
+	check("a name with strange text in the saved lines is skipped, not an error", Session.Restore({ state = "open", items = { 1 }, groups = { { itemID = 1, packed = "\n\t\t\nAnn\tNOPE\t\t\nBob\tMS\t\t" } } }, function() return false end).groups[1].order[1] == "bob")
+end
+
 if failed > 0 then
 	print(failed .. " failed")
 	os.exit(1)
