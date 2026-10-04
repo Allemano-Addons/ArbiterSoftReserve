@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.1-beta
+- The close cross is bigger in the Import, Session and Results windows, like in Arbiter Loot Council 0.5.0-beta.
+
 ## 0.3.0-beta
 - **One player, one row in "By player".** The imported list may know a player by the first name only ("Allemano") while the game says "Allemano Moo"; the lines of a reserver who did not answer used to be a second player. They are now put with the full name (when only one full name starts with that first name). The raid night heading is shorter ("10-03 20:02-23:42") so it is not cut off.
 - **Results per raid night.** A button in `/asr results` switches between **Per session** (as before, still the default) and **Per raid night**: sessions less than four hours apart are one raid (it can run past midnight), and the window then steps through raids instead of sessions, with the time span, the number of sessions and items. "By player" adds the wins up over the night, so you can see how many items Allemano won tonight; "By item" lists every item of the night, the latest at the top (and "By player" lists a player's lines the same way).
