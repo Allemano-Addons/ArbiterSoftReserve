@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.3-beta
+- The three loot master settings Soft Reserve adds to Arbiter Loot Council's Settings (hand the items nobody wanted to the disenchanter, say the result in the raid chat, resolve by itself) are part of the settings profile that Arbiter Loot Council 0.6.0-beta can share and import.
+
 ## 0.3.2-beta
 - Tells Allemano Hub what the soft reserve session is doing (when the Hub is installed): started, resolved, rerolled, reopened, accepted. The lines show up under "Recent activity" in the Hub's problem report. Nothing changes when the Hub is not installed.
 

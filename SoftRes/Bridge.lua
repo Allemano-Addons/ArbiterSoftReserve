@@ -339,13 +339,13 @@ function Bridge.RegisterSettings()
 					SoftRes.History.Clear()
 					if ASR.ResultsWindow then ASR.ResultsWindow:Refresh() end
 				end },
-			{ tab = "lm", type = "check", label = "Hand the items nobody wanted to the disenchanter",
+			{ tab = "lm", id = "disenchant", type = "check", label = "Hand the items nobody wanted to the disenchanter",
 				tip = "When you accept a result, those items are offered to the disenchanter set below in the same question as the winners.",
 				get = function() return db().disenchant ~= false end, set = function(on) db().disenchant = on and true or false end },
-			{ tab = "lm", type = "choice", label = "Say the result in the raid chat when I accept",
+			{ tab = "lm", id = "announce", type = "choice", label = "Say the result in the raid chat when I accept",
 				options = { { label = "Off", value = "off" }, { label = "Winners", value = "winners" }, { label = "With runner-up", value = "runnerup" } },
 				get = function() return db().announce or "off" end, set = function(value) db().announce = value end },
-			{ tab = "lm", type = "check", label = "Resolve by itself when the answer time is up",
+			{ tab = "lm", id = "autoResolve", type = "check", label = "Resolve by itself when the answer time is up",
 				tip = "A few seconds after the timer runs out, the rolls are made. Off: you press Resolve.",
 				get = function() return db().autoResolve == true end, set = function(on) db().autoResolve = on and true or false end },
 		},
