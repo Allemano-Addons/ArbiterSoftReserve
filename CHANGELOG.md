@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.2-beta
+- Tells Allemano Hub what the soft reserve session is doing (when the Hub is installed): started, resolved, rerolled, reopened, accepted. The lines show up under "Recent activity" in the Hub's problem report. Nothing changes when the Hub is not installed.
+
 ## 0.3.1-beta
 - The close cross is bigger in the Import, Session and Results windows, like in Arbiter Loot Council 0.5.0-beta.
 

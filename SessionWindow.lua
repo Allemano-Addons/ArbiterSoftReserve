@@ -473,6 +473,7 @@ end
 
 local function resolve()
 	local waiting = Controller().session:Resolve()
+	Controller().HubLog(("Resolved%s"):format(waiting and waiting > 0 and (", " .. waiting .. " still waiting") or ""))
 	Controller():Save() -- the rolls must survive a /reload at once
 	shareResult("resolved")
 	if waiting and waiting > 0 then
@@ -488,6 +489,7 @@ local function reroll()
 	for _, group in ipairs(session.groups) do
 		if group.result and #group.result.ties > 0 then session:Reroll(group.slots[1]) end
 	end
+	Controller().HubLog("Rerolled the ties")
 	Controller():Save() -- the rolls must survive a /reload at once
 	shareResult("resolved")
 	SessionWindow:Refresh()
@@ -533,6 +535,7 @@ end
 
 local function reopen()
 	Controller().session:Reopen()
+	Controller().HubLog("Reopened the session")
 	Controller():Save() -- the rolls must survive a /reload at once
 	shareResult("resolved")
 	SessionWindow:Refresh()

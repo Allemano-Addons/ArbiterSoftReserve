@@ -14,6 +14,11 @@ SoftRes.Controller = Controller
 
 Controller.TEST_PLAYERS = 4
 
+-- A line in the Allemano Hub's activity log (it ends up in the Hub's report), when the Hub is installed.
+function Controller.HubLog(text)
+	if type(_G.AllemanoHubLog) == "function" then pcall(_G.AllemanoHubLog, "ASR", text) end
+end
+
 local VIA = { SR = "Soft reserve", MS = "Main spec", OS = "Off spec" }
 
 -- The item IDs in a command line: links (item:12345) first, else plain numbers. Returns a list.
@@ -52,6 +57,7 @@ function Controller:Start(itemIDs)
 	self.session = SoftRes.Session.New(items)
 	self.live = nil -- set by the bridge when ALC runs the session
 	self.wasLive = nil
+	Controller.HubLog(("Soft reserve session started, %d items"):format(#items))
 	return self.session
 end
 
@@ -173,6 +179,7 @@ function Controller:Accept(nameOf)
 	local session = self.session
 	if not session then return nil, "There is no session." end
 	local awards, unclaimed = session:Accept()
+	Controller.HubLog(awards and ("Result accepted, %d awarded, %d unclaimed"):format(#awards, #(unclaimed or {})) or "Accept refused")
 	self.awards, self.unclaimed = awards, unclaimed -- for the loot master's "Award all" (see Bridge)
 	self:Save()
 	if not awards then return nil, unclaimed end
