@@ -23,6 +23,7 @@ History.MAX_SESSIONS = 15 -- the most; the player can choose 5, 10 or 15 in the 
 History.MAX_ROWS = 60
 
 local strlower = string.lower
+local pendingEvents = {} -- the events of a session that has no result yet (see AddEvent)
 
 local function sessions()
 	ASR.db = ASR.db or {}
@@ -122,7 +123,8 @@ function History.Record(sid, item, itemID, state, rows, when, lm)
 	end
 	if not session then
 		if not rows or #rows == 0 then return false end
-		session = { sid = sid, time = when or time(), lm = lm, items = {} }
+		session = { sid = sid, time = when or time(), lm = lm, items = {}, events = pendingEvents[sid] }
+		pendingEvents[sid] = nil
 		list[#list + 1] = session
 		while #list > History.Keep() do table.remove(list, 1) end
 	end
@@ -143,6 +145,33 @@ function History.Record(sid, item, itemID, state, rows, when, lm)
 	end
 	-- an open results window shows it at once
 	if ASR.ResultsWindow and ASR.ResultsWindow.Refresh then ASR.ResultsWindow:Refresh() end
+	return true
+end
+
+-- What happened in a session, in order: { { t = time, text = "Rolled" }, ... }. Kept with the session; events that come
+-- before the session has a result (the first Resolve) wait here until it has.
+local MAX_EVENTS = 30
+
+local function findSession(sid)
+	for _, s in ipairs(sessions()) do
+		if s.sid == sid then return s end
+	end
+end
+
+function History.AddEvent(sid, text, when)
+	if type(sid) ~= "string" or type(text) ~= "string" or text == "" then return false end
+	local entry = { t = when or time(), text = string.sub(text, 1, 60) }
+	local session = findSession(sid)
+	local list
+	if session then
+		session.events = session.events or {}
+		list = session.events
+	else
+		pendingEvents[sid] = pendingEvents[sid] or {}
+		list = pendingEvents[sid]
+	end
+	list[#list + 1] = entry
+	while #list > MAX_EVENTS do table.remove(list, 1) end
 	return true
 end
 

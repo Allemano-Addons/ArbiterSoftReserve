@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0-beta
+- **Start over** (before: Reopen answers) sits at the right end of the line under the title, away from Resolve, Reroll ties and Accept result, so it is not pressed by mistake. It still asks first and resets the rolls and the result; the answers stay.
+- **A warning before Stop session.** The first click says how many items are not awarded yet and that their rolls and results are lost; the second click within four seconds stops the session. When everything is awarded the button says Close session and closes at once.
+- **The session stays open until you close it** (with Arbiter Loot Council 0.7.0-beta): after the last award the window says "All awarded" and Undo award keeps working; there is no countdown that closes the session by itself.
+- **What happened in a session** is kept and shown at the bottom of `/asr results`: "21:14 Rolled · 21:15 Rerolled the ties · 21:17 Started over · 21:18 Result accepted". It is on the loot master's computer.
+
 ## 0.3.3-beta
 - The three loot master settings Soft Reserve adds to Arbiter Loot Council's Settings (hand the items nobody wanted to the disenchanter, say the result in the raid chat, resolve by itself) are part of the settings profile that Arbiter Loot Council 0.6.0-beta can share and import.
 

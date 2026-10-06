@@ -226,6 +226,19 @@ do
 	ASR.db.keepSessions = nil
 end
 
+-- Events: what happened in a session
+History.Clear()
+check("an event with nothing to attach it to is kept for later", History.AddEvent("sid-9", "Rolled", 100) == true and History.AddEvent("sid-9", "Rerolled the ties", 200) == true)
+check("a session with no result has no events yet", #History.Sessions() == 0)
+History.Record("sid-9", 1, 29764, "resolved", { { name = "Tester", answer = "MS", roll = 50, outcome = "won" } }, 90, "Allemano Moo")
+local events = History.Sessions()[1].events
+check("they come with the session when it gets its first result", events and #events == 2 and events[1].text == "Rolled" and events[2].t == 200)
+History.AddEvent("sid-9", "Started over", 300)
+check("later events are added in order", #History.Sessions()[1].events == 3 and History.Sessions()[1].events[3].text == "Started over")
+check("an empty or missing text is refused", History.AddEvent("sid-9", "") == false and History.AddEvent(nil, "x") == false and History.AddEvent("sid-9", nil) == false)
+for i = 1, 40 do History.AddEvent("sid-9", "event " .. i) end
+check("only the last 30 are kept", #History.Sessions()[1].events == 30 and History.Sessions()[1].events[30].text == "event 40")
+
 if failed > 0 then
 	print(failed .. " failed")
 	os.exit(1)

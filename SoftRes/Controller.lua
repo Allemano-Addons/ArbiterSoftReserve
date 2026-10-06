@@ -17,6 +17,8 @@ Controller.TEST_PLAYERS = 4
 -- A line in the Allemano Hub's activity log (it ends up in the Hub's report), when the Hub is installed.
 function Controller.HubLog(text)
 	if type(_G.AllemanoHubLog) == "function" then pcall(_G.AllemanoHubLog, "ASR", text) end
+	-- the same line is kept with the session, so the results can say what happened (rolled, rerolled, started over)
+	if Controller.live and SoftRes.History and SoftRes.History.AddEvent then SoftRes.History.AddEvent(Controller.live, text) end
 end
 
 local VIA = { SR = "Soft reserve", MS = "Main spec", OS = "Off spec" }

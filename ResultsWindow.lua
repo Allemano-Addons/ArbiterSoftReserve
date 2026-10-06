@@ -24,7 +24,7 @@ local UNKNOWN_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local frame, UI, c
 local sessionText, byItemButton, byPlayerButton, prevButton, nextButton, emptyText, scopeButton
-local title, sub, firstHead
+local title, sub, firstHead, eventsText
 local listRows, lineRows = {}, {}
 local listBar, lineBar, listFrame, linesFrame
 local sessionIndex, mode = 1, "item" -- which session (1 = the newest), "item" or "player"
@@ -263,6 +263,7 @@ function ResultsWindow:Refresh()
 	emptyText:SetShown(session == nil)
 
 	if not session then
+		eventsText:SetText("")
 		sessionText:SetText("No results yet")
 		title:SetText("")
 		sub:SetText("")
@@ -286,6 +287,15 @@ function ResultsWindow:Refresh()
 		sessionText:SetText(string.format("%s  \194\183  %d of %d  \194\183  %s", when(session.time), sessionIndex, #sessions, itemsText))
 	end
 	scopeButton:SetLabel(scope == "raid" and "Per raid night" or "Per session")
+	-- the events of the session, in order: "21:14 Rolled  9483  21:15 Rerolled the ties  9483  21:17 Started over"
+	local eventLine = ""
+	if scope == "session" and session.events and #session.events > 0 then
+		local fmt = date or os.date
+		local parts = {}
+		for i, e in ipairs(session.events) do parts[i] = fmt("%H:%M", e.t or 0) .. " " .. (e.text or "") end
+		eventLine = table.concat(parts, "  9483  ")
+	end
+	eventsText:SetText(eventLine)
 	firstHead:SetText(mode == "player" and "ITEM" or "PLAYER")
 
 	listVisible = math.max(1, math.min(#entries, LIST_ROWS))
@@ -495,6 +505,10 @@ local function build()
 	UI.SetTextureColor(footer, c.border)
 	local closeButton = UI.NewButton(frame, 90, 32, "Close", function() ResultsWindow:Hide() end)
 	closeButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, 12)
+	-- What happened in the selected session (rolled, rerolled, started over, accepted), when the loot master has it.
+	eventsText = UI.NewText(frame, 11, c.muted)
+	eventsText:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", PAD, 40)
+	eventsText:SetPoint("RIGHT", frame, "RIGHT", -PAD, 0)
 	local hint = UI.NewText(frame, 11, c.muted)
 	hint:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", PAD, 22)
 	hint:SetText("The last 15 sessions are kept. This is what every player saw.")

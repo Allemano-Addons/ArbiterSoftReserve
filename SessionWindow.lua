@@ -38,6 +38,7 @@ local tabButtons, tradeRows = {}, {}
 local tradeOffset, tradeVisible = 0, 1
 local TRADE_ROWS, TRADE_H, TRADE_GAP = 8, 46, 4
 local selected, itemOffset, playerOffset = 1, 0, 0
+local stopArmed -- the first click of Stop session was made (see stopSession)
 local retries = 0 -- how many times the window has looked again for item names the game did not have yet
 
 -- ---------------------------------------------------------------------------
@@ -199,7 +200,7 @@ local BANNER = {
 	open = "Answers come in as the players give them. Press Resolve when the time is up.",
 	resolved = "Rolled. Reroll ties if there are any, then Accept result.",
 	accepted = "Accepted. Award all hands out the winners.",
-	finishing = "All awarded. The session closes by itself; Close session ends it now.",
+	finishing = "All awarded. The session stays open until you press Close session: the results and Undo award are still here.",
 }
 
 -- ---------------------------------------------------------------------------
@@ -312,8 +313,9 @@ function SessionWindow:UpdateTimer()
 	-- while so that an award can be undone. Say which, so it is clear that the session is not over yet.
 	if session and C.live and session.state == "accepted" and Sessions and Sessions.GetFinishLeft then
 		local finish = Sessions:GetFinishLeft()
+		local isFinishing = Sessions.IsFinishing and Sessions:IsFinishing() or finish ~= nil
 		-- the buttons and the line under the title follow this: when it changes, draw the window again
-		local phase = finish and "finishing" or "accepted"
+		local phase = isFinishing and "finishing" or "accepted"
 		if phase ~= lastPhase then
 			lastPhase = phase
 			self:Refresh()
@@ -323,6 +325,9 @@ function SessionWindow:UpdateTimer()
 			finish = math.ceil(finish)
 			timerText:SetTextColor(GREEN[1], GREEN[2], GREEN[3], 1)
 			timerText:SetText(string.format("All awarded: the session closes in %d:%02d", math.floor(finish / 60), finish % 60))
+		elseif isFinishing then
+			timerText:SetTextColor(GREEN[1], GREEN[2], GREEN[3], 1)
+			timerText:SetText("All awarded")
 		else
 			timerText:SetTextColor(c.gold[1], c.gold[2], c.gold[3], 1)
 			timerText:SetText("Accepted: not awarded yet")
@@ -379,7 +384,7 @@ function SessionWindow:Refresh()
 	local line
 	if C.live then
 		local Sessions = ALC and ALC.Sessions
-		local finishing = session.state == "accepted" and Sessions and Sessions.GetFinishLeft and Sessions:GetFinishLeft() ~= nil
+		local finishing = session.state == "accepted" and Sessions and ((Sessions.IsFinishing and Sessions:IsFinishing()) or (Sessions.GetFinishLeft and Sessions:GetFinishLeft() ~= nil))
 		line = finishing and BANNER.finishing or BANNER[session.state] or BANNER.open
 	elseif C.wasLive then
 		line = "This session in Arbiter Loot Council has ended."
@@ -434,10 +439,10 @@ function SessionWindow:Refresh()
 	local live = C.live ~= nil
 	local Sessions = ALC and ALC.Sessions
 	-- every item awarded: the session only waits for the undo time to run out
-	local finishing = live and session.state == "accepted" and Sessions and Sessions.GetFinishLeft and Sessions:GetFinishLeft() ~= nil
+	local finishing = live and session.state == "accepted" and Sessions and ((Sessions.IsFinishing and Sessions:IsFinishing()) or (Sessions.GetFinishLeft and Sessions:GetFinishLeft() ~= nil)) or false
 	buttons.pause:SetShown(live and not finishing)
 	buttons.stop:SetShown(live)
-	buttons.stop:SetLabel(finishing and "Close session" or "Stop session")
+	buttons.stop:SetLabel(finishing and "Close session" or (stopArmed and "Click again to stop" or "Stop session"))
 	if live then
 		local paused = ALC.Sessions and ALC.Sessions.IsPaused and ALC.Sessions:IsPaused()
 		buttons.pause:SetLabel(paused and "Resume" or "Pause")
@@ -528,14 +533,30 @@ local function pauseSession()
 	SessionWindow:Refresh()
 end
 
+-- Stopping loses the rolls of the items that are not awarded yet, so the first click only warns. When everything is
+-- awarded the button says Close session and closes at once.
 local function stopSession()
-	local ok, message = ALC.Sessions:Cancel("stopped")
+	local Sessions = ALC.Sessions
+	local finishing = Sessions.IsFinishing and Sessions:IsFinishing()
+	if not finishing and not stopArmed then
+		stopArmed = true
+		buttons.stop:SetLabel("Click again to stop")
+		local open = Sessions.GetSummary and Sessions:GetSummary().open or 0
+		ASR:Print(string.format("Stopping the session loses the rolls and results of the items that are not awarded (%d open). Click Stop session again within 4 seconds to stop it.", open))
+		C_Timer.After(4, function()
+			stopArmed = nil
+			SessionWindow:Refresh()
+		end)
+		return
+	end
+	stopArmed = nil
+	local ok, message = Sessions:Cancel(finishing and "closed" or "stopped")
 	if not ok and message then ASR:Print(message) end
 end
 
 local function reopen()
 	Controller().session:Reopen()
-	Controller().HubLog("Reopened the session")
+	Controller().HubLog("Started over: the rolls were reset")
 	Controller():Save() -- the rolls must survive a /reload at once
 	shareResult("resolved")
 	SessionWindow:Refresh()
@@ -556,14 +577,14 @@ local function askReopen()
 		UI.AddBorder(f, c.gold, 1, 10)
 		local title = UI.NewText(f, 14, c.text)
 		title:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -PAD)
-		title:SetText("REOPEN ANSWERS?")
+		title:SetText("START OVER?")
 		local text = UI.NewText(f, 13, c.muted)
 		text:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(PAD + 30))
 		text:SetPoint("RIGHT", f, "RIGHT", -PAD, 0)
 		text:SetWordWrap(true)
 		text:SetJustifyV("TOP")
-		text:SetText("Reopening will reset all rolls, ties and the result. The answers stay. Press Resolve again to roll again: everybody gets new rolls.")
-		local yes = UI.NewButton(f, 130, 34, "Reopen", function() f:Hide() reopen() end)
+		text:SetText("Starting over resets all rolls, ties and the result. The answers stay. Press Resolve again to roll again: everybody gets new rolls.")
+		local yes = UI.NewButton(f, 130, 34, "Start over", function() f:Hide() reopen() end)
 		yes:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
 		local no = UI.NewButton(f, 110, 34, "Cancel", function() f:Hide() end)
 		no:SetPoint("RIGHT", yes, "LEFT", -8, 0)
@@ -769,12 +790,18 @@ local function build()
 	buttons.reroll:SetPoint("LEFT", buttons.resolve, "RIGHT", 8, 0)
 	buttons.accept = UI.NewButton(frame, 112, 32, "Accept result", accept)
 	buttons.accept:SetPoint("LEFT", buttons.reroll, "RIGHT", 8, 0)
-	buttons.reopen = UI.NewButton(frame, 124, 32, "Reopen answers", askReopen)
-	buttons.reopen:SetPoint("LEFT", buttons.accept, "RIGHT", 8, 0)
+	-- Start over: not among the buttons that carry the session forward, so it is not pressed by mistake. It sits at the
+	-- right end of the line under the title, and asks first.
+	buttons.reopen = UI.NewButton(frame, 104, 24, "Start over", askReopen)
+	buttons.reopen:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD, -(HEADER_H + 8))
+	if buttons.reopen.label then buttons.reopen.label:SetTextColor(c.danger[1], c.danger[2], c.danger[3], 1) end
+	banner:ClearAllPoints()
+	banner:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -(HEADER_H + 12))
+	banner:SetPoint("RIGHT", buttons.reopen, "LEFT", -10, 0)
 	-- only for a session that runs in Arbiter Loot Council (the loot master's own controls live in ASR's window,
 	-- so the council window is not needed for a soft reserve session)
 	buttons.pause = UI.NewButton(frame, 76, 32, "Pause", pauseSession)
-	buttons.pause:SetPoint("LEFT", buttons.reopen, "RIGHT", 12, 0)
+	buttons.pause:SetPoint("LEFT", buttons.accept, "RIGHT", 24, 0)
 	buttons.stop = UI.NewButton(frame, 104, 32, "Stop session", stopSession)
 	buttons.stop:SetPoint("LEFT", buttons.pause, "RIGHT", 8, 0)
 	local closeButton = UI.NewButton(frame, 76, 32, "Close", function() SessionWindow:Hide() end)

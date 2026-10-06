@@ -10,7 +10,7 @@ Soft reserve for Arbiter Loot Council: import your softres.it list, everybody ro
 
 Arbiter Soft Reserve (ASR) adds soft reserve sessions to [Arbiter Loot Council](https://www.curseforge.com/wow/addons/arbiter-loot-council). At the end of the raid the loot master collects all the loot, everybody answers on every item, and the addon works out who wins what. The loot master looks at the result, accepts it and hands everything out in one go.
 
-> **Beta (0.3.3).** The whole flow works: import, a session where everybody answers, one roll for all, every roll shown to everybody, one question that hands out all the winners (and the items nobody wanted, to the disenchanter), and a results window to look back at. **Requires Arbiter Loot Council 0.4.1-beta or newer, 0.4.2-beta is best** (the loot master needs both addons, the other players need Arbiter Loot Council).
+> **Beta (0.4.0).** The whole flow works: import, a session where everybody answers, one roll for all, every roll shown to everybody, one question that hands out all the winners (and the items nobody wanted, to the disenchanter), and a results window to look back at. **Requires Arbiter Loot Council 0.4.1-beta or newer, 0.7.0-beta is best** (the loot master needs both addons, the other players need Arbiter Loot Council).
 
 ### How it works
 
